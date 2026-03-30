@@ -1,18 +1,17 @@
 from transformers import pipeline
-import os
+import torch
 
-# -----------------------------
-# Setup
-# -----------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "distilbert_hc3_final")
+MODEL_ID = "Bornali13/ai-disclosure-model"
 
-print("USING MODEL LOADER:", os.path.abspath(__file__))
+print("USING HUGGING FACE MODEL:", MODEL_ID)
+
+device = 0 if torch.cuda.is_available() else -1
 
 classifier = pipeline(
     "text-classification",
-    model=MODEL_PATH,
-    tokenizer=MODEL_PATH
+    model=MODEL_ID,
+    tokenizer=MODEL_ID,
+    device=device
 )
 
 # -----------------------------

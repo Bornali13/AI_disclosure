@@ -15,3 +15,4 @@ transformers
 torch
 openai
 email-validator
+huggingface_hub

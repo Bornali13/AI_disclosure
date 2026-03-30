@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from model_loader import predict_text
 from pydantic import BaseModel, EmailStr
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -72,7 +73,7 @@ UPLOAD_DIR = DATA_DIR / "uploaded_submissions"
 EXPORTS_DIR = DATA_DIR / "exports"
 
 # Model path (keep in code directory)
-MODEL_DIR = BASE_DIR / "models" / "distilbert_hc3_final"
+MODEL_ID = "Bornali13/ai-disclosure-model"
 
 # Ensure directories exist
 for folder in [
