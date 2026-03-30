@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+env/
+
+# Environment variables
+.env
+
+# Backend data (important for Render)
+backend/data/
+
+# Uploaded files
+backend/uploaded_submissions/
+backend/reports/
+backend/exports/
+
+# Model (VERY IMPORTANT - large files)
+backend/models/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Disclosure • Student Registration</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #f6f8ff 0%, #f1f5ff 40%, #eef7ff 100%);
+      min-height: 100vh;
+    }
+
+    .card-hero {
+      border: 0;
+      box-shadow: 0 10px 30px rgba(28, 87, 255, 0.08);
+      border-radius: 18px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .section-subtitle {
+      color: #6b7280;
+      font-size: 0.95rem;
+    }
+
+    .section-box {
+      border: 1px solid #e9eefb;
+      border-radius: 14px;
+      padding: 1.25rem;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="card card-hero">
+          <div class="card-body p-4 p-lg-5">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-shield-check fs-4 text-primary"></i>
+              <h2 class="h4 mb-0">Student Registration</h2>
+            </div>
+
+            <p class="section-subtitle mb-4">
+              Register with your full name, email address, and student ID. A verification code will be sent first. After successful verification, you will be able to set your password.
+            </p>
+
+            <div id="registerAlert" class="alert alert-danger d-none" role="alert"></div>
+            <div id="registerSuccess" class="alert alert-success d-none" role="alert"></div>
+
+            <div id="registerSection" class="section-box mb-4">
+              <h3 class="h6 section-title mb-3">Step 1: Register</h3>
+
+              <form id="registerForm" novalidate>
+                <div class="mb-3">
+                  <label for="fullName" class="form-label">Full Name</label>
+                  <input type="text" id="fullName" class="form-control" required />
+                </div>
+
+                <div class="mb-3">
+                  <label for="studentEmail" class="form-label">Email Address</label>
+                  <input type="email" id="studentEmail" class="form-control" required />
+                </div>
+
+                <div class="mb-3">
+                  <label for="studentId" class="form-label">Student ID</label>
+                  <input type="text" id="studentId" class="form-control" required />
+                </div>
+
+                <button id="registerBtn" type="submit" class="btn btn-primary w-100">
+                  Register and Send Verification Code
+                </button>
+              </form>
+            </div>
+
+            <div id="verifySection" class="section-box mb-4 d-none">
+              <h3 class="h6 section-title mb-3">Step 2: Verify Email</h3>
+
+              <form id="verifyForm" novalidate>
+                <div class="mb-3">
+                  <label for="verifyEmail" class="form-label">Email Address</label>
+                  <input type="email" id="verifyEmail" class="form-control" readonly />
+                </div>
+
+                <div class="mb-3">
+                  <label for="otpCode" class="form-label">Verification Code</label>
+                  <input type="text" id="otpCode" class="form-control" required />
+                </div>
+
+                <button id="verifyBtn" type="submit" class="btn btn-outline-primary w-100">
+                  Verify Code
+                </button>
+              </form>
+            </div>
+
+            <div id="passwordSection" class="section-box d-none">
+              <h3 class="h6 section-title mb-3">Step 3: Set Password</h3>
+
+              <form id="setPasswordForm" novalidate>
+                <div class="mb-3">
+                  <label for="passwordEmail" class="form-label">Email Address</label>
+                  <input type="email" id="passwordEmail" class="form-control" readonly />
+                </div>
+
+                <div class="mb-3">
+                  <label for="newPassword" class="form-label">Password</label>
+                  <input type="password" id="newPassword" class="form-control" minlength="6" required />
+                </div>
+
+                <div class="mb-3">
+                  <label for="confirmPassword" class="form-label">Confirm Password</label>
+                  <input type="password" id="confirmPassword" class="form-control" minlength="6" required />
+                </div>
+
+                <button id="setPasswordBtn" type="submit" class="btn btn-success w-100">
+                  Set Password
+                </button>
+              </form>
+            </div>
+
+            <div class="text-center mt-4">
+              <a href="index.html" class="text-decoration-none">Back to Login</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/register.js"></script>
+</body>
+</html>

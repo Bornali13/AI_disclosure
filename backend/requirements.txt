@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+python-dotenv
+reportlab
+passlib[bcrypt]
+python-jose
+sendgrid
+requests
+mammoth
+python-docx
+pypdf
+transformers
+torch
+openai
+email-validator

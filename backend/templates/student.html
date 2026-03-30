@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Disclosure • Student</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    body {
+      background: #f7f7fb;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: #eef3ff;
+      color: #3459e6;
+    }
+
+    .section-card {
+      border: 0;
+      border-radius: 18px;
+      box-shadow: 0 8px 28px rgba(16, 24, 40, 0.08);
+    }
+
+    .section-title {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .section-subtitle {
+      color: #6c757d;
+      margin-bottom: 0;
+    }
+
+    .metric-box {
+      border: 1px solid #e9ecef;
+      border-radius: 16px;
+      padding: 1rem;
+      text-align: center;
+      background: #fff;
+      height: 100%;
+    }
+
+    .metric-label {
+      color: #6c757d;
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .metric-value {
+      font-size: 1.45rem;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .soft-panel {
+      border: 1px solid #e9ecef;
+      border-radius: 16px;
+      background: #fcfcfe;
+    }
+
+    .preview-box {
+      border: 1px solid #e9ecef;
+      border-radius: 14px;
+      background: #fff;
+      min-height: 220px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+    }
+
+    .preview-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .file-hint {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #loadingCard {
+      border-radius: 18px;
+    }
+
+    .time-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid #ead7a4;
+      background: #fff8e1;
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.9rem;
+      color: #6b5a1e;
+    }
+
+    .mini-stat {
+      border: 1px solid #e9ecef;
+      border-radius: 14px;
+      background: #fff;
+      padding: 0.85rem 1rem;
+      height: 100%;
+    }
+
+    .mini-stat-label {
+      font-size: 0.9rem;
+      color: #6c757d;
+      margin-bottom: 0.25rem;
+    }
+
+    .mini-stat-value {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #eef3ff;
+      color: #3459e6;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="index.html">
+        <span class="brand-mark">
+          <i class="bi bi-shield-check"></i>
+        </span>
+        <span>AI Disclosure</span>
+      </a>
+
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-muted small d-none d-md-inline">Student Portal</span>
+        <a class="btn btn-outline-secondary btn-sm" href="index.html">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4 py-lg-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-xl-10">
+
+        <!-- Step 1 -->
+        <div class="card section-card mb-4">
+          <div class="card-body p-4 p-lg-5">
+            <div class="mb-4">
+              <h4 class="section-title">
+                <span class="step-badge">1</span>
+                Select Semester, Course and Assignment
+              </h4>
+              <p class="section-subtitle">
+                Choose your semester, enrolled course, and assignment. The system will then check whether you already submitted it.
+              </p>
+            </div>
+
+            <div class="row g-3">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="semesterSelect" class="form-label">Semester</label>
+                  <select id="semesterSelect" class="form-select" required>
+                    <option value="">Loading semesters...</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label for="checkCourseCode" class="form-label">Course</label>
+                <select id="checkCourseCode" class="form-select" required>
+                  <option value="">Select Course</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label for="checkAssignmentNumber" class="form-label">Assignment</label>
+                <select id="checkAssignmentNumber" class="form-select" required>
+                  <option value="">Select Assignment</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mt-3 d-flex flex-wrap gap-2">
+              <button id="checkStatusBtn" type="button" class="btn btn-primary">
+                <i class="bi bi-search me-1"></i>
+                Check Submission Status
+              </button>
+            </div>
+
+            <div id="statusMessage" class="alert d-none mt-3 mb-0"></div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div id="submissionPortalWrap" class="card section-card d-none">
+          <div class="card-body p-4 p-lg-5">
+
+            <div class="mb-4">
+              <h4 class="section-title">
+                <span class="step-badge">2</span>
+                AI Disclosure and File Upload
+              </h4>
+              <p class="section-subtitle">
+                Complete the disclosure, upload your draft and final file, preview the content, analyze the assignment, and then submit.
+              </p>
+            </div>
+
+            <form id="submissionForm" class="row g-3">
+              <input type="hidden" id="courseCode" />
+              <input type="hidden" id="assignmentId" />
+
+              <div class="col-md-4">
+                <label for="studentName" class="form-label">Student Name</label>
+                <input id="studentName" class="form-control" readonly />
+              </div>
+
+              <div class="col-md-4">
+                <label for="studentId" class="form-label">Student ID</label>
+                <input id="studentId" class="form-control" readonly />
+              </div>
+
+              <div class="col-md-4">
+                <label for="studentEmail" class="form-label">Email</label>
+                <input id="studentEmail" class="form-control" readonly />
+              </div>
+
+              <div class="col-md-4">
+                <label for="selectedSemester" class="form-label">Semester</label>
+                <input id="selectedSemester" class="form-control" readonly />
+              </div>
+
+              <div class="col-md-4">
+                <label for="selectedCourseText" class="form-label">Selected Course</label>
+                <input id="selectedCourseText" class="form-control" readonly />
+              </div>
+
+              <div class="col-md-4">
+                <label for="selectedAssignmentText" class="form-label">Selected Assignment</label>
+                <input id="selectedAssignmentText" class="form-control" readonly />
+              </div>
+
+              <div class="col-12">
+                <div class="soft-panel p-3">
+                  <label class="form-label fw-semibold">Did you use AI tools for this assignment?</label>
+
+                  <div class="d-flex flex-wrap gap-4 mt-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="aiUsed" id="aiUsedNo" value="no" checked />
+                      <label class="form-check-label" for="aiUsedNo">No</label>
+                    </div>
+
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="aiUsed" id="aiUsedYes" value="yes" />
+                      <label class="form-check-label" for="aiUsedYes">Yes</label>
+                    </div>
+                  </div>
+
+                  <div id="aiOptions" class="row g-2 mt-3 d-none">
+                    <div class="col-12">
+                      <div class="fw-semibold mb-2">How did you use AI?</div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="usedRewrite" />
+                        <label class="form-check-label" for="usedRewrite">Rewrite / Edit</label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="usedResearch" />
+                        <label class="form-check-label" for="usedResearch">Research / Idea support</label>
+                      </div>
+                    </div>
+
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="usedComplete" />
+                        <label class="form-check-label" for="usedComplete">Generate content</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="evidenceWrap" class="mt-3 d-none">
+                    <label for="evidenceText" class="form-label">Disclosure note</label>
+                    <textarea
+                      id="evidenceText"
+                      class="form-control"
+                      rows="4"
+                      placeholder="Briefly describe how you used AI, for example: grammar correction, idea generation, paraphrasing, or summarization."
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="draftFile" class="form-label">Draft Upload (Optional)</label>
+                <input type="file" class="form-control" id="draftFile" accept=".doc,.docx" />
+                <div class="file-hint mt-1">
+                  Upload a draft version if you want the system to compare draft and final writing.Only .docx files are allowed.
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label for="finalFile" class="form-label">Final Submission (.docx only)</label>
+                <input type="file" id="finalFile" class="form-control" accept=".docx" required />
+                <div class="file-hint mt-1">
+                  Upload the original final Word file. This file can later be downloaded by the teacher.
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="soft-panel p-3 h-100">
+                  <div class="preview-title d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-file-earmark-text me-1"></i> Draft Preview</span>
+                    <span id="draftWordCount" class="text-muted small">Words: 0</span>
+                  </div>
+                  <div id="draftPreview" class="preview-box text-muted">
+                    No draft file uploaded yet.
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="soft-panel p-3 h-100">
+                  <div class="preview-title d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-file-earmark-check me-1"></i> Final Preview</span>
+                    <span id="finalWordCount" class="text-muted small">Words: 0</span>
+                  </div>
+                  <div id="finalPreview" class="preview-box text-muted">
+                    No final file uploaded yet.
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                  <button type="button" id="btnCheck" class="btn btn-outline-warning">
+                    <i class="bi bi-activity me-1"></i>
+                    Analyze
+                  </button>
+
+                  <button type="button" id="btnFinalSubmit" class="btn btn-primary">
+                    <i class="bi bi-send-check me-1"></i>
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Loading -->
+            <div id="loadingCard" class="card mt-4 d-none border-warning-subtle bg-warning-subtle">
+              <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="spinner-border text-warning" role="status" aria-hidden="true"></div>
+                    <div>
+                      <div id="loadingTitle" class="fw-semibold">Analyzing your assignment...</div>
+                      <div id="loadingMessage" class="text-muted small">
+                        Please wait while the system extracts text, checks the document, and prepares the analysis result.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="time-pill">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Elapsed Time:</span>
+                    <strong id="analysisTimer">00:00</strong>
+                  </div>
+                </div>
+
+                <div class="progress mt-3" style="height: 10px;">
+                  <div
+                    id="progressBar"
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    style="width: 0%;"
+                    aria-valuenow="0"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                  ></div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-md-4">
+                    <div class="mini-stat">
+                      <div class="mini-stat-label">Current Stage</div>
+                      <div id="loadingStage" class="mini-stat-value">Preparing files</div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mini-stat">
+                      <div class="mini-stat-label">Draft Status</div>
+                      <div id="loadingDraftStatus" class="mini-stat-value">Optional</div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mini-stat">
+                      <div class="mini-stat-label">Final File Status</div>
+                      <div id="loadingFinalStatus" class="mini-stat-value">Waiting</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div id="studentResult" class="mt-4 d-none">
+          <div class="card section-card">
+            <div class="card-body p-4 p-lg-5">
+
+              <div class="mb-4">
+                <h4 class="section-title">
+                  <span class="step-badge">3</span>
+                  AI Analysis Result
+                </h4>
+                <p class="section-subtitle">
+                  Review the analysis result before final submission.
+                </p>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <div class="metric-box">
+                    <div class="metric-label">AI Likelihood</div>
+                    <div id="aiPctOut" class="metric-value">-</div>
+                  </div>
+                </div>
+
+                <div class="col-md-3">
+                  <div class="metric-box">
+                    <div class="metric-label">Classification</div>
+                    <div id="classificationOut" class="metric-value fs-5">-</div>
+                  </div>
+                </div>
+
+                <div class="col-md-3">
+                  <div class="metric-box">
+                    <div class="metric-label">Risk</div>
+                    <div id="riskLevelOut" class="metric-value fs-5">-</div>
+                  </div>
+                </div>
+
+                <div class="col-md-3">
+                  <div class="metric-box">
+                    <div class="metric-label">Decision</div>
+                    <div id="aiNoteOut" class="metric-value fs-5">-</div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="metric-box">
+                    <div class="metric-label">Total Words Assessed</div>
+                    <div id="totalWordsAssessedOut" class="metric-value fs-5">0</div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="metric-box">
+                    <div class="metric-label">Chunks Assessed</div>
+                    <div id="totalChunksAssessedOut" class="metric-value fs-5">0</div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="metric-box">
+                    <div class="metric-label">Analysis Time</div>
+                    <div id="analysisTimeOut" class="metric-value fs-5">00:00</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="soft-panel p-3 mt-4">
+                <div class="fw-semibold mb-2">Explanation</div>
+                <div id="agentExplanation" class="text-muted">-</div>
+              </div>
+
+              <div class="mt-4">
+                <h5 class="mb-3">Suspicious Sections</h5>
+                <div id="suspiciousSectionsContainer"></div>
+              </div>
+
+              <div class="d-flex justify-content-end mt-3">
+                <button id="downloadReportBtn" class="btn btn-success d-none">
+                  <i class="bi bi-file-earmark-arrow-down me-1"></i>Download AI Report
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+  <script src="js/student.js"></script>
+  <link rel="stylesheet" href="css/style.css">
+</body>
+</html>
