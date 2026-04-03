@@ -21,8 +21,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from uuid import uuid4
 
-from backend.model_loader import predict_text
-from backend.agent import decision_agent, explain_result
+from model_loader import predict_text
+from agent import decision_agent, explain_result
 
 import sqlite3
 import textwrap
