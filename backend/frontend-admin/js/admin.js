@@ -1,4 +1,4 @@
-const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
+const API_BASE = "https://ai-disclosure.onrender.com";
 const ADMIN_KEY = "aidisclosure_admin_auth";
 
 let auth = null;

@@ -1,4 +1,4 @@
-const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
+const API_BASE = "https://ai-disclosure.onrender.com";
 
 const registerAlert = document.getElementById("registerAlert");
 const registerSuccess = document.getElementById("registerSuccess");

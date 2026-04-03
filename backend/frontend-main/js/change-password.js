@@ -1,5 +1,5 @@
 const AUTH_KEY = 'aidisclosure_auth_v1';
-const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
+const API_BASE = "https://ai-disclosure.onrender.com";
 
 const auth = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
 
