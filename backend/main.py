@@ -1694,6 +1694,9 @@ async def student_submit_assignment(
 
         submission_id = cur.fetchone()["id"]
         conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
 
 @app.get("/api/teacher/submissions/{submission_id}/download-draft")
