@@ -2454,47 +2454,67 @@ def root():
 def debug_db():
     return {"database_url": DATABASE_URL}
 
+#---------------------------------------
+@app.get("/debug/admins")
+def debug_admins():
+    conn = None
+    cur = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, full_name, email, is_active
+            FROM admins
+            ORDER BY id ASC
+        """)
+        return cur.fetchall()
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 #--------------------------------
 @app.get("/setup-admin")
 def setup_admin():
-    conn = get_conn()
-    cur = conn.cursor()
+    conn = None
+    cur = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
 
-    full_name = "AI Disclosure Admin"
-    email = "aidisclosure@gmail.com"
-    plain_password = "!0no@ghost"
-    password_hash = hash_password(plain_password)
+        full_name = "AI Disclosure Admin"
+        email = "aidisclosure@gmail.com"
+        plain_password = "!0no@ghost"
+        password_hash = hash_password(plain_password)
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS admins (
-            id SERIAL PRIMARY KEY,
-            full_name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            is_active INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        cur.execute("SELECT id, email FROM admins WHERE email = %s", (email,))
+        existing = cur.fetchone()
 
-    cur.execute("SELECT id FROM admins WHERE email = %s", (email,))
-    existing = cur.fetchone()
+        if existing:
+            cur.execute("""
+                UPDATE admins
+                SET full_name = %s, password_hash = %s, is_active = 1
+                WHERE email = %s
+            """, (full_name, password_hash, email))
+            message = "Admin updated successfully"
+        else:
+            cur.execute("""
+                INSERT INTO admins (full_name, email, password_hash, is_active)
+                VALUES (%s, %s, %s, 1)
+            """, (full_name, email, password_hash))
+            message = "Admin created successfully"
 
-    if existing:
-        cur.execute("""
-            UPDATE admins
-            SET full_name = %s, password_hash = %s, is_active = 1
-            WHERE email = %s
-        """, (full_name, password_hash, email))
-        message = "Admin updated successfully"
-    else:
-        cur.execute("""
-            INSERT INTO admins (full_name, email, password_hash, is_active)
-            VALUES (%s, %s, %s, 1)
-        """, (full_name, email, password_hash))
-        message = "Admin created successfully"
+        conn.commit()
+        return {"message": message, "email": email}
 
-    conn.commit()
-    cur.close()
-    conn.close()
+    except Exception as e:
+        return {"error": str(e)}
 
-    return {"message": message, "email": email}
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
