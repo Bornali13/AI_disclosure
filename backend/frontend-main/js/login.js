@@ -1,5 +1,6 @@
 const AUTH_KEY = "aidisclosure_auth_v1";
 const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
 
 function saveAuth(auth) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(auth));

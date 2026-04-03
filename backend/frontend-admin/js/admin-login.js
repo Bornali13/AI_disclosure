@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
 const ADMIN_KEY = "aidisclosure_admin_auth";
 
 document.getElementById("adminLoginForm").addEventListener("submit", async (e) => {

@@ -53,6 +53,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+origins = [
+    "https://ai-portal.onrender.com",
+    "https://ai-admin.onrender.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 # =========================================================
 # Paths / Config
 # =========================================================
