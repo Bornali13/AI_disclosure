@@ -1,4 +1,4 @@
-from backend.openai_helper import generate_explanation
+from openai_helper import generate_explanation
 
 def decision_agent(label, ai_score):
     """
