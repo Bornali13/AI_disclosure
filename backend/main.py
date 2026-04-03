@@ -64,16 +64,8 @@ app.add_middleware(
 # =========================================================
 # Paths / Config
 # =========================================================
-
-# Base project directory (backend folder)
-BASE_DIR = Path(__file__).resolve().parent
-
-# Data directory (important for Render)
-DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
-
-# Create main data folder
+DATA_DIR = Path(os.getenv("DATA_DIR", "/var/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 # Paths
 DB_PATH = DATA_DIR / "submissions.db"
 REPORTS_DIR = DATA_DIR / "reports"
@@ -2432,3 +2424,7 @@ def teacher_allow_resubmission(
 @app.get("/")
 def root():
     return {"message": "AI Disclosure backend is running"}
+
+@app.get("/debug/db-path")
+def debug_db_path():
+    return {"db_path": str(DB_PATH)}
