@@ -1,7 +1,13 @@
+import os
 import sqlite3
+from pathlib import Path
 from passlib.context import CryptContext
 
-DB_PATH = "submissions.db"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+DB_PATH = DATA_DIR / "submissions.db"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -11,7 +17,7 @@ plain_password = "!0no@ghost"
 
 password_hash = pwd_context.hash(plain_password)
 
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(str(DB_PATH))
 cur = conn.cursor()
 
 cur.execute("""
@@ -31,7 +37,13 @@ existing = cur.execute(
 ).fetchone()
 
 if existing:
-    print("Admin already exists.")
+    cur.execute("""
+        UPDATE admins
+        SET full_name = ?, password_hash = ?, is_active = 1
+        WHERE email = ?
+    """, (full_name, password_hash, email))
+    conn.commit()
+    print("Admin already existed. Password updated.")
 else:
     cur.execute("""
         INSERT INTO admins (full_name, email, password_hash, is_active)
@@ -41,3 +53,4 @@ else:
     print("Admin created successfully.")
 
 conn.close()
+print("DB PATH:", DB_PATH)

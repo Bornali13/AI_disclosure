@@ -21,11 +21,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from uuid import uuid4
 
-from model_loader import predict_text
 from agent import decision_agent, explain_result
 from openai_helper import generate_explanation
 
-import sqlite3
 import textwrap
 import os
 import io
@@ -33,6 +31,8 @@ import csv
 import random
 import shutil
 from pathlib import Path
+import psycopg2
+import psycopg2.extras
 
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -67,10 +67,13 @@ app.add_middleware(
 DATA_DIR = Path(os.getenv("DATA_DIR", "/var/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 # Paths
-DB_PATH = DATA_DIR / "submissions.db"
 REPORTS_DIR = DATA_DIR / "reports"
 UPLOAD_DIR = DATA_DIR / "uploaded_submissions"
 EXPORTS_DIR = DATA_DIR / "exports"
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 # Model path (keep in code directory)
 MODEL_ID = "Bornali13/ai-disclosure-model"
@@ -87,14 +90,10 @@ for folder in [
 # Database Helpers
 # =========================================================
 def get_conn():
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def column_exists(cur, table_name: str, column_name: str) -> bool:
-    rows = cur.execute(f"PRAGMA table_info({table_name})").fetchall()
-    return any(r["name"] == column_name for r in rows)
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
 
 
 def init_db():
@@ -104,7 +103,7 @@ def init_db():
     # ---------------- Users
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             full_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT,
@@ -112,26 +111,26 @@ def init_db():
             is_active INTEGER DEFAULT 1,
             is_verified INTEGER DEFAULT 0,
             must_change_password INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     # ---------------- Admins
     cur.execute("""
         CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             full_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             is_active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     # ---------------- Students
     cur.execute("""
         CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             student_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             student_id TEXT UNIQUE NOT NULL
@@ -141,7 +140,7 @@ def init_db():
     # ---------------- Teachers
     cur.execute("""
         CREATE TABLE IF NOT EXISTS teachers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             teacher_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL
         )
@@ -150,36 +149,34 @@ def init_db():
     # ---------------- Courses
     cur.execute("""
         CREATE TABLE IF NOT EXISTS courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             course_name TEXT NOT NULL,
-            course_code TEXT NOT NULL UNIQUE
+            course_code TEXT UNIQUE NOT NULL
         )
     """)
 
     # ---------------- Semesters
     cur.execute("""
         CREATE TABLE IF NOT EXISTS semesters (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            semester_name TEXT NOT NULL UNIQUE
+            id SERIAL PRIMARY KEY,
+            semester_name TEXT UNIQUE NOT NULL
         )
     """)
 
     # ---------------- Semester-Course map
     cur.execute("""
         CREATE TABLE IF NOT EXISTS semester_courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            semester_id INTEGER NOT NULL,
-            course_code TEXT NOT NULL,
-            UNIQUE(semester_id, course_code),
-            FOREIGN KEY (semester_id) REFERENCES semesters(id),
-            FOREIGN KEY (course_code) REFERENCES courses(course_code)
+            id SERIAL PRIMARY KEY,
+            semester_id INTEGER NOT NULL REFERENCES semesters(id),
+            course_code TEXT NOT NULL REFERENCES courses(course_code),
+            UNIQUE(semester_id, course_code)
         )
     """)
 
     # ---------------- Teacher-Course map
     cur.execute("""
         CREATE TABLE IF NOT EXISTS teacher_courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             teacher_email TEXT NOT NULL,
             course_code TEXT NOT NULL,
             UNIQUE(teacher_email, course_code)
@@ -189,7 +186,7 @@ def init_db():
     # ---------------- Student-Course map
     cur.execute("""
         CREATE TABLE IF NOT EXISTS student_courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             student_id TEXT NOT NULL,
             course_code TEXT NOT NULL,
             UNIQUE(student_id, course_code)
@@ -199,7 +196,7 @@ def init_db():
     # ---------------- Assignments
     cur.execute("""
         CREATE TABLE IF NOT EXISTS assignments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             course_code TEXT NOT NULL,
             assignment_number TEXT NOT NULL,
             assignment_title TEXT,
@@ -210,22 +207,22 @@ def init_db():
     # ---------------- Email verifications
     cur.execute("""
         CREATE TABLE IF NOT EXISTS email_verifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT NOT NULL,
             otp_code TEXT NOT NULL,
             purpose TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
             is_verified INTEGER DEFAULT 0,
             is_used INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     # ---------------- Submissions
     cur.execute("""
         CREATE TABLE IF NOT EXISTS submissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            submitted_at TEXT,
+            id SERIAL PRIMARY KEY,
+            submitted_at TIMESTAMP,
             semester_name TEXT,
             student_name TEXT NOT NULL,
             student_id TEXT NOT NULL,
@@ -252,16 +249,9 @@ def init_db():
         )
     """)
 
-    # Backward-compatible migration for existing DB
-    if not column_exists(cur, "submissions", "semester_name"):
-        cur.execute("ALTER TABLE submissions ADD COLUMN semester_name TEXT")
-        
-    if not column_exists(cur, "submissions", "draft_file_name"):
-        cur.execute("ALTER TABLE submissions ADD COLUMN draft_file_name TEXT")
-
     conn.commit()
+    cur.close()
     conn.close()
-
 
 @app.on_event("startup")
 def startup_event():
@@ -326,30 +316,36 @@ def now_utc_iso() -> str:
 def teacher_has_course(teacher_email: str, course_code: str) -> bool:
     conn = get_conn()
     cur = conn.cursor()
-    row = cur.execute("""
-        SELECT 1
-        FROM teacher_courses
-        WHERE teacher_email = ? AND course_code = ?
-    """, (teacher_email, course_code)).fetchone()
-    conn.close()
-    return bool(row)
+    try:
+        cur.execute("""
+            SELECT 1
+            FROM teacher_courses
+            WHERE teacher_email = %s AND course_code = %s
+        """, (teacher_email, course_code))
+        row = cur.fetchone()
+        return bool(row)
+    finally:
+        cur.close()
+        conn.close()
 
 
 def semester_exists(cur, semester_name: str):
-    return cur.execute("""
+    cur.execute("""
         SELECT id, semester_name
         FROM semesters
-        WHERE semester_name = ?
-    """, (semester_name.strip(),)).fetchone()
+        WHERE semester_name = %s
+    """, (semester_name.strip(),))
+    return cur.fetchone()
 
 
 def semester_course_exists(cur, semester_name: str, course_code: str) -> bool:
-    row = cur.execute("""
+    cur.execute("""
         SELECT 1
         FROM semester_courses sc
         JOIN semesters s ON s.id = sc.semester_id
-        WHERE s.semester_name = ? AND sc.course_code = ?
-    """, (semester_name.strip(), course_code.strip())).fetchone()
+        WHERE s.semester_name = %s AND sc.course_code = %s
+    """, (semester_name.strip(), course_code.strip()))
+    row = cur.fetchone()
     return bool(row)
 
 def wrap_text(text: str, width: int = 90):
@@ -554,15 +550,17 @@ def register_student(data: StudentRegisterRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    existing_user = cur.execute(
-        "SELECT * FROM users WHERE email = ?",
+    cur.execute(
+        "SELECT * FROM users WHERE email = %s",
         (data.email.strip(),)
-    ).fetchone()
+    )
+    existing_user = cur.fetchone()
 
-    existing_student = cur.execute(
-        "SELECT * FROM students WHERE email = ? OR student_id = ?",
+    cur.execute(
+        "SELECT * FROM students WHERE email = %s OR student_id = %s",
         (data.email.strip(), data.student_id.strip())
-    ).fetchone()
+    )
+    existing_student = cur.fetchone()
 
     if existing_user or existing_student:
         conn.close()
@@ -570,12 +568,12 @@ def register_student(data: StudentRegisterRequest):
 
     cur.execute("""
         INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-        VALUES (?, ?, 'student', 1, 0, 0)
+        VALUES (%s, %s, 'student', 1, 0, 0)
     """, (data.full_name.strip(), data.email.strip()))
 
     cur.execute("""
         INSERT INTO students (student_name, email, student_id)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     """, (data.full_name.strip(), data.email.strip(), data.student_id.strip()))
 
     otp = generate_otp()
@@ -583,7 +581,7 @@ def register_student(data: StudentRegisterRequest):
 
     cur.execute("""
         INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
-        VALUES (?, ?, 'register', ?, 0, 0)
+        VALUES (%s, %s, 'register', %s, 0, 0)
     """, (data.email.strip(), otp, expires_at))
 
     conn.commit()
@@ -606,12 +604,14 @@ def verify_register_otp(data: VerifyOtpRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    row = cur.execute("""
+    cur.execute("""
         SELECT * FROM email_verifications
-        WHERE email = ? AND otp_code = ? AND purpose = 'register' AND is_used = 0
+        WHERE email = %s AND otp_code = %s AND purpose = 'register' AND is_used = 0
         ORDER BY id DESC
         LIMIT 1
-    """, (data.email.strip(), data.otp_code.strip())).fetchone()
+    """, (data.email.strip(), data.otp_code.strip()))
+    row = cur.fetchone()
+    
 
     if not row:
         conn.close()
@@ -624,13 +624,13 @@ def verify_register_otp(data: VerifyOtpRequest):
     cur.execute("""
         UPDATE email_verifications
         SET is_verified = 1
-        WHERE id = ?
+        WHERE id = %s
     """, (row["id"],))
 
     cur.execute("""
         UPDATE users
         SET is_verified = 1
-        WHERE email = ?
+        WHERE email = %s
     """, (data.email.strip(),))
 
     conn.commit()
@@ -650,21 +650,23 @@ def set_student_password(data: SetPasswordRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    user = cur.execute("""
+    cur.execute("""
         SELECT * FROM users
-        WHERE email = ? AND role = 'student'
-    """, (data.email.strip(),)).fetchone()
+        WHERE email = %s AND role = 'student'
+    """, (data.email.strip(),))
+    user = cur.fetchone()
 
     if not user:
         conn.close()
         raise HTTPException(status_code=404, detail="Student account not found")
 
-    row = cur.execute("""
+    cur.execute("""
         SELECT * FROM email_verifications
-        WHERE email = ? AND purpose = 'register' AND is_verified = 1 AND is_used = 0
+        WHERE email = %s AND purpose = 'register' AND is_verified = 1 AND is_used = 0
         ORDER BY id DESC
         LIMIT 1
-    """, (data.email.strip(),)).fetchone()
+    """, (data.email.strip(),))
+    row = cur.fetchone()
 
     if not row:
         conn.close()
@@ -672,14 +674,14 @@ def set_student_password(data: SetPasswordRequest):
 
     cur.execute("""
         UPDATE users
-        SET password_hash = ?, is_verified = 1
-        WHERE email = ?
+        SET password_hash = %s, is_verified = 1
+        WHERE email = %s
     """, (hash_password(data.password), data.email.strip()))
 
     cur.execute("""
         UPDATE email_verifications
         SET is_used = 1
-        WHERE id = ?
+        WHERE id = %s
     """, (row["id"],))
 
     conn.commit()
@@ -697,10 +699,11 @@ def login(data: LoginRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    user = cur.execute("""
+    cur.execute("""
         SELECT * FROM users
-        WHERE email = ? AND role = ? AND is_active = 1
-    """, (data.email.strip(), role)).fetchone()
+        WHERE email = %s AND role = %s AND is_active = 1
+    """, (data.email.strip(), role))
+    user = cur.fetchone()
 
     conn.close()
 
@@ -747,9 +750,10 @@ def change_password(
     conn = get_conn()
     cur = conn.cursor()
 
-    user = cur.execute("""
-        SELECT * FROM users WHERE id = ?
-    """, (current_user["user_id"],)).fetchone()
+    cur.execute("""
+        SELECT * FROM users WHERE id = %s
+    """, (current_user["user_id"],))
+    user = cur.fetchone()
 
     if not user:
         conn.close()
@@ -761,8 +765,8 @@ def change_password(
 
     cur.execute("""
         UPDATE users
-        SET password_hash = ?, must_change_password = 0
-        WHERE id = ?
+        SET password_hash = %s, must_change_password = 0
+        WHERE id = %s
     """, (hash_password(data.new_password), user["id"]))
 
     conn.commit()
@@ -776,9 +780,10 @@ def request_reset_otp(data: ResetRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    user = cur.execute("""
-        SELECT * FROM users WHERE email = ?
-    """, (data.email.strip(),)).fetchone()
+    cur.execute("""
+        SELECT * FROM users WHERE email = %s
+    """, (data.email.strip(),))
+    user = cur.fetchone()
 
     if not user:
         conn.close()
@@ -789,7 +794,7 @@ def request_reset_otp(data: ResetRequest):
 
     cur.execute("""
         INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
-        VALUES (?, ?, 'reset', ?, 0, 0)
+        VALUES (%s, %s, 'reset', %s, 0, 0)
     """, (data.email.strip(), otp, expires_at))
 
     conn.commit()
@@ -812,12 +817,13 @@ def verify_reset_otp(data: ResetVerifyRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    row = cur.execute("""
+    cur.execute("""
         SELECT * FROM email_verifications
-        WHERE email = ? AND otp_code = ? AND purpose = 'reset' AND is_used = 0
+        WHERE email = %s AND otp_code = %s AND purpose = 'reset' AND is_used = 0
         ORDER BY id DESC
         LIMIT 1
-    """, (data.email.strip(), data.otp.strip())).fetchone()
+    """, (data.email.strip(), data.otp.strip()))
+    row = cur.fetchone()
 
     if not row:
         conn.close()
@@ -830,7 +836,7 @@ def verify_reset_otp(data: ResetVerifyRequest):
     cur.execute("""
         UPDATE email_verifications
         SET is_verified = 1
-        WHERE id = ?
+        WHERE id = %s
     """, (row["id"],))
 
     conn.commit()
@@ -850,20 +856,22 @@ def reset_change_password(data: ResetChangePasswordRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    user = cur.execute("""
-        SELECT * FROM users WHERE email = ?
-    """, (data.email.strip(),)).fetchone()
+    cur.execute("""
+        SELECT * FROM users WHERE email = %s
+    """, (data.email.strip(),))
+    user = cur.fetchone()
 
     if not user:
         conn.close()
         raise HTTPException(status_code=404, detail="User not found")
 
-    row = cur.execute("""
+    cur.execute("""
         SELECT * FROM email_verifications
-        WHERE email = ? AND purpose = 'reset' AND is_verified = 1 AND is_used = 0
+        WHERE email = %s AND purpose = 'reset' AND is_verified = 1 AND is_used = 0
         ORDER BY id DESC
         LIMIT 1
-    """, (data.email.strip(),)).fetchone()
+    """, (data.email.strip(),))
+    row = cur.fetchone()
 
     if not row:
         conn.close()
@@ -871,14 +879,14 @@ def reset_change_password(data: ResetChangePasswordRequest):
 
     cur.execute("""
         UPDATE users
-        SET password_hash = ?
-        WHERE email = ?
+        SET password_hash = %s
+        WHERE email = %s
     """, (hash_password(data.new_password), data.email.strip()))
 
     cur.execute("""
         UPDATE email_verifications
         SET is_used = 1
-        WHERE id = ?
+        WHERE id = %s
     """, (row["id"],))
 
     conn.commit()
@@ -895,10 +903,11 @@ def admin_login(data: AdminLoginRequest):
     conn = get_conn()
     cur = conn.cursor()
 
-    admin = cur.execute("""
+    cur.execute("""
         SELECT * FROM admins
-        WHERE email = ? AND is_active = 1
-    """, (data.email.strip(),)).fetchone()
+        WHERE email = %s AND is_active = 1
+    """, (data.email.strip(),))
+    admin = cur.fetchone()
 
     conn.close()
 
@@ -926,11 +935,12 @@ def admin_login(data: AdminLoginRequest):
 def admin_get_teachers(current_admin: dict = Depends(get_current_admin)):
     conn = get_conn()
     cur = conn.cursor()
-    rows = cur.execute("""
+    cur.execute("""
         SELECT teacher_name, email
         FROM teachers
         ORDER BY teacher_name ASC
-    """).fetchall()
+    """)
+    rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -939,11 +949,13 @@ def admin_get_teachers(current_admin: dict = Depends(get_current_admin)):
 def admin_get_courses(current_admin: dict = Depends(get_current_admin)):
     conn = get_conn()
     cur = conn.cursor()
-    rows = cur.execute("""
+    cur.execute("""
         SELECT course_code, course_name
         FROM courses
         ORDER BY course_code ASC
-    """).fetchall()
+    """)
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -957,40 +969,37 @@ def admin_create_teacher(
     cur = conn.cursor()
 
     try:
-        existing_user = cur.execute("""
-            SELECT * FROM users WHERE email = ?
-        """, (data.email.strip(),)).fetchone()
+        # FIXED SELECT
+        cur.execute("SELECT * FROM users WHERE email = %s", (data.email.strip(),))
+        existing_user = cur.fetchone()
 
-        existing_teacher = cur.execute("""
-            SELECT * FROM teachers WHERE email = ?
-        """, (data.email.strip(),)).fetchone()
+        cur.execute("SELECT * FROM teachers WHERE email = %s", (data.email.strip(),))
+        existing_teacher = cur.fetchone()
 
         if existing_user or existing_teacher:
             raise HTTPException(status_code=400, detail="Teacher email already exists")
 
-        # Create user WITHOUT password
+        # FIXED INSERT
         cur.execute("""
             INSERT INTO users (full_name, email, password_hash, role, is_active, is_verified, must_change_password)
-            VALUES (?, ?, NULL, 'teacher', 1, 1, 1)
+            VALUES (%s, %s, NULL, 'teacher', 1, 1, 1)
         """, (data.teacher_name.strip(), data.email.strip()))
 
         cur.execute("""
             INSERT INTO teachers (teacher_name, email)
-            VALUES (?, ?)
+            VALUES (%s, %s)
         """, (data.teacher_name.strip(), data.email.strip()))
 
-        # Generate OTP
         otp = generate_otp()
         expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
 
         cur.execute("""
             INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
-            VALUES (?, ?, 'reset', ?, 0, 0)
+            VALUES (%s, %s, 'reset', %s, 0, 0)
         """, (data.email.strip(), otp, expires_at))
 
         conn.commit()
 
-        # Send email
         send_email_otp(
             to_email=data.email.strip(),
             subject="AI Disclosure - Teacher Account Setup",
@@ -1000,6 +1009,7 @@ def admin_create_teacher(
         return {"message": "Teacher created and setup email sent"}
 
     finally:
+        cur.close()
         conn.close()
 
 
@@ -1011,26 +1021,26 @@ def admin_create_student(
     conn = get_conn()
     cur = conn.cursor()
 
-    existing_user = cur.execute("""
-        SELECT * FROM users WHERE email = ?
-    """, (data.email.strip(),)).fetchone()
+    cur.execute("SELECT * FROM users WHERE email = %s", (data.email.strip(),))
+    existing_user = cur.fetchone()
 
-    existing_student = cur.execute("""
-        SELECT * FROM students WHERE email = ? OR student_id = ?
-    """, (data.email.strip(), data.student_id.strip())).fetchone()
+    cur.execute("SELECT * FROM students WHERE email = %s OR student_id = %s",
+    (data.email.strip(), data.student_id.strip()))
+    existing_student = cur.fetchone()
 
     if existing_user or existing_student:
         conn.close()
         raise HTTPException(status_code=400, detail="Student email or student ID already exists")
+    
 
     cur.execute("""
         INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-        VALUES (?, ?, 'student', 1, 0, 0)
+        VALUES (%s, %s, 'student', 1, 0, 0)
     """, (data.student_name.strip(), data.email.strip()))
 
     cur.execute("""
         INSERT INTO students (student_name, email, student_id)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     """, (data.student_name.strip(), data.email.strip(), data.student_id.strip()))
 
     conn.commit()
@@ -1051,21 +1061,21 @@ def admin_create_semester(
     cur = conn.cursor()
 
     try:
-        existing = cur.execute("""
-            SELECT 1 FROM semesters WHERE semester_name = ?
-        """, (data.semester_name.strip(),)).fetchone()
+        cur.execute("SELECT 1 FROM semesters WHERE semester_name = %s", (data.semester_name.strip(),))
+        existing = cur.fetchone()
 
         if existing:
             raise HTTPException(status_code=400, detail="Semester already exists")
 
         cur.execute("""
             INSERT INTO semesters (semester_name)
-            VALUES (?)
+            VALUES (%s)
         """, (data.semester_name.strip(),))
 
         conn.commit()
         return {"message": "Semester added successfully"}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -1077,9 +1087,8 @@ def admin_create_course(
     conn = get_conn()
     cur = conn.cursor()
 
-    existing = cur.execute("""
-        SELECT * FROM courses WHERE course_code = ?
-    """, (data.course_code.strip(),)).fetchone()
+    cur.execute("SELECT * FROM courses WHERE course_code = %s", (data.course_code.strip(),))
+    existing = cur.fetchone()
 
     if existing:
         conn.close()
@@ -1087,7 +1096,7 @@ def admin_create_course(
 
     cur.execute("""
         INSERT INTO courses (course_name, course_code)
-        VALUES (?, ?)
+        VALUES (%s, %s)
     """, (data.course_name.strip(), data.course_code.strip()))
 
     conn.commit()
@@ -1101,14 +1110,16 @@ def admin_get_semesters(current_admin: dict = Depends(get_current_admin)):
     cur = conn.cursor()
 
     try:
-        rows = cur.execute("""
+        cur.execute("""
             SELECT id, semester_name
             FROM semesters
             ORDER BY id ASC
-        """).fetchall()
+        """)
+        rows = cur.fetchall()
 
         return {"semesters": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 @app.post("/api/admin/assign-semester-course")
@@ -1127,7 +1138,7 @@ def admin_assign_semester_course(
 
         cur.execute("""
             INSERT INTO semester_courses (semester_id, course_code)
-            VALUES (?, ?)
+            VALUES (%s, %s)
         """, (semester["id"], data.course_code.strip()))
 
         conn.commit()
@@ -1147,7 +1158,7 @@ def admin_create_assignment(
     try:
         cur.execute("""
             INSERT INTO assignments (course_code, assignment_number, assignment_title)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
         """, (
             data.course_code.strip(),
             data.assignment_number.strip(),
@@ -1158,6 +1169,7 @@ def admin_create_assignment(
         return {"message": "Assignment added successfully"}
 
     finally:
+        cur.close()
         conn.close()
 
 @app.post("/api/admin/assign-teacher-course")
@@ -1168,26 +1180,29 @@ def admin_assign_teacher_course(
     conn = get_conn()
     cur = conn.cursor()
 
-    teacher = cur.execute("""
-        SELECT * FROM teachers WHERE email = ?
-    """, (data.teacher_email.strip(),)).fetchone()
+    cur.execute("""
+        SELECT * FROM teachers WHERE email = %s
+    """, (data.teacher_email.strip(),))
+    teacher = cur.fetchone()
 
     if not teacher:
         conn.close()
         raise HTTPException(status_code=404, detail="Teacher not found")
 
-    course = cur.execute("""
-        SELECT * FROM courses WHERE course_code = ?
-    """, (data.course_code.strip(),)).fetchone()
+    cur.execute("""
+        SELECT * FROM courses WHERE course_code = %s
+    """, (data.course_code.strip(),))
+    course = cur.fetchone()
 
     if not course:
         conn.close()
         raise HTTPException(status_code=404, detail="Course not found")
 
-    existing = cur.execute("""
+    cur.execute("""
         SELECT * FROM teacher_courses
-        WHERE teacher_email = ? AND course_code = ?
-    """, (data.teacher_email.strip(), data.course_code.strip())).fetchone()
+        WHERE teacher_email = %s AND course_code = %s
+    """, (data.teacher_email.strip(), data.course_code.strip()))
+    existing = cur.fetchone()
 
     if existing:
         conn.close()
@@ -1195,7 +1210,7 @@ def admin_assign_teacher_course(
 
     cur.execute("""
         INSERT INTO teacher_courses (teacher_email, course_code)
-        VALUES (?, ?)
+        VALUES (%s, %s)
     """, (data.teacher_email.strip(), data.course_code.strip()))
 
     conn.commit()
@@ -1212,10 +1227,9 @@ def admin_send_reset_email(
     cur = conn.cursor()
 
     try:
-        user = cur.execute("""
-            SELECT * FROM users
-            WHERE email = ? AND role = ?
-        """, (data.email.strip(), data.role.strip())).fetchone()
+        cur.execute("""SELECT * FROM users
+        WHERE email = %s AND role = %s""", (data.email.strip(), data.role.strip()))
+        user = cur.fetchone()
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -1225,7 +1239,7 @@ def admin_send_reset_email(
 
         cur.execute("""
             INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
-            VALUES (?, ?, 'reset', ?, 0, 0)
+            VALUES (%s, %s, 'reset', %s, 0, 0)
         """, (data.email.strip(), otp, expires_at))
 
         conn.commit()
@@ -1239,6 +1253,7 @@ def admin_send_reset_email(
         return {"message": "Reset email sent successfully"}
 
     finally:
+        cur.close()
         conn.close()
 # =========================================================
 # Shared semester API
@@ -1248,11 +1263,12 @@ def get_semesters(current_user: dict = Depends(get_current_user)):
     conn = get_conn()
     cur = conn.cursor()
 
-    rows = cur.execute("""
+    cur.execute("""
         SELECT semester_name
         FROM semesters
         ORDER BY id ASC
-    """).fetchall()
+    """)
+    rows = cur.fetchall()
 
     conn.close()
     return [dict(r) for r in rows]
@@ -1276,16 +1292,17 @@ def student_get_courses(
         if not semester:
             raise HTTPException(status_code=404, detail="Semester not found")
 
-        rows = cur.execute("""
-            SELECT DISTINCT c.course_code, c.course_name
-            FROM semester_courses smc
-            JOIN courses c ON c.course_code = smc.course_code
-            WHERE smc.semester_id = ?
-            ORDER BY c.course_code ASC
-        """, (semester["id"],)).fetchall()
+        cur.execute("""
+                    SELECT DISTINCT c.course_code, c.course_name
+                    FROM semester_courses smc
+                    JOIN courses c ON c.course_code = smc.course_code
+                    WHERE smc.semester_id = %s
+                    ORDER BY c.course_code ASC""", (semester["id"],))
+        rows = cur.fetchall()
 
         return {"courses": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -1302,24 +1319,26 @@ def student_get_assignments(
     try:
         course_code = course_code.strip()
 
-        course = cur.execute("""
-            SELECT 1
-            FROM courses
-            WHERE course_code = ?
-        """, (course_code,)).fetchone()
+        cur.execute("""
+                    SELECT 1
+                    FROM courses
+                    WHERE course_code = %s
+                    """, (course_code,))
+        course = cur.fetchone()
 
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
-        rows = cur.execute("""
-            SELECT assignment_number, assignment_title
-            FROM assignments
-            WHERE course_code = ?
-            ORDER BY assignment_number ASC
-        """, (course_code,)).fetchall()
+        cur.execute("""
+                    SELECT assignment_number, assignment_title
+                    FROM assignments
+                    WHERE course_code = %s
+                    ORDER BY assignment_number ASC""", (course_code,))
+        rows = cur.fetchall()
 
         return {"assignments": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 @app.get("/api/student/check-submission")
@@ -1335,11 +1354,10 @@ def student_check_submission(
     cur = conn.cursor()
 
     try:
-        student = cur.execute("""
-            SELECT *
-            FROM students
-            WHERE email = ?
-        """, (current_user["email"],)).fetchone()
+        cur.execute("""
+                    SELECT * FROM students
+                    WHERE email = %s""", (current_user["email"],))
+        student = cur.fetchone()
 
         if not student:
             raise HTTPException(status_code=404, detail="Student record not found")
@@ -1353,58 +1371,61 @@ def student_check_submission(
             if not semester:
                 raise HTTPException(status_code=404, detail="Semester not found")
 
-            course_row = cur.execute("""
-                SELECT 1
-                FROM semester_courses
-                WHERE semester_id = ? AND course_code = ?
-            """, (semester["id"], course_code)).fetchone()
+            cur.execute("""SELECT 1
+                        FROM semester_courses
+                        WHERE semester_id = %s AND course_code = %s
+                        """, (semester["id"], course_code))
+            course_row = cur.fetchone()
 
             if not course_row:
                 raise HTTPException(status_code=400, detail="Invalid course for selected semester")
 
-        assignment_row = cur.execute("""
-            SELECT 1
-            FROM assignments
-            WHERE course_code = ? AND assignment_number = ?
-        """, (course_code, assignment_number)).fetchone()
+        cur.execute("""SELECT 1
+                    FROM assignments
+                    WHERE course_code = %s AND assignment_number = %s
+                    """, (course_code, assignment_number))
+        assignment_row = cur.fetchone()
 
         if not assignment_row:
             raise HTTPException(status_code=400, detail="Invalid assignment for selected course")
 
         if semester_name:
-            existing = cur.execute("""
-                SELECT 1
-                FROM submissions
-                WHERE student_id = ?
-                  AND semester_name = ?
-                  AND course_code = ?
-                  AND assignment_number = ?
-                LIMIT 1
-            """, (
-                student["student_id"],
-                semester_name,
-                course_code,
-                assignment_number
-            )).fetchone()
+            cur.execute("""
+                        SELECT 1
+                        FROM submissions
+                        WHERE student_id = %s
+                          AND semester_name = %s
+                          AND course_code = %s
+                          AND assignment_number = %s
+                        LIMIT 1
+                        """, (
+                            student["student_id"],
+                            semester_name,
+                            course_code,
+                            assignment_number
+                            ))
+            existing = cur.fetchone()
         else:
-            existing = cur.execute("""
-                SELECT 1
-                FROM submissions
-                WHERE student_id = ?
-                  AND course_code = ?
-                  AND assignment_number = ?
-                LIMIT 1
-            """, (
-                student["student_id"],
-                course_code,
-                assignment_number
-            )).fetchone()
+            cur.execute("""
+                        SELECT 1
+                        FROM submissions
+                        WHERE student_id = %s
+                          AND course_code = %s
+                          AND assignment_number = %s
+                        LIMIT 1
+                        """, (
+                            student["student_id"],
+                            course_code,
+                            assignment_number
+                        ))
+            existing = cur.fetchone()
 
         return {
             "already_submitted": bool(existing),
             "message": "Already submitted" if existing else "Submission allowed"
         }
     finally:
+        cur.close()
         conn.close()
         
 @app.get("/api/student/profile")
@@ -1415,11 +1436,13 @@ def get_student_profile(current_user: dict = Depends(get_current_user)):
     cur = conn.cursor()
 
     try:
-        student = cur.execute("""
-            SELECT student_name, student_id, email
-            FROM students
-            WHERE email = ?
-        """, (current_user["email"],)).fetchone()
+        cur.execute("""
+                   SELECT student_name, student_id, email
+                   FROM students
+                   WHERE email = %s
+                   """, (current_user["email"],))
+
+        student = cur.fetchone()
 
         if not student:
             raise HTTPException(status_code=404, detail="Student not found")
@@ -1431,6 +1454,7 @@ def get_student_profile(current_user: dict = Depends(get_current_user)):
         }
 
     finally:
+        cur.close()
         conn.close()
 
 @app.post("/api/submit")
@@ -1461,11 +1485,12 @@ async def student_submit_assignment(
         # -------------------------
         # Student validation
         # -------------------------
-        student = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM students
-            WHERE email = ?
-        """, (current_user["email"],)).fetchone()
+            WHERE email = %s
+        """, (current_user["email"],))
+        student = cur.fetchone()
 
         if not student:
             raise HTTPException(status_code=404, detail="Student record not found")
@@ -1484,11 +1509,12 @@ async def student_submit_assignment(
         # -------------------------
         # Course belongs to semester (IMPORTANT)
         # -------------------------
-        course_row = cur.execute("""
+        cur.execute("""
             SELECT 1
             FROM semester_courses
-            WHERE semester_id = ? AND course_code = ?
-        """, (semester["id"], course_code)).fetchone()
+            WHERE semester_id = %s AND course_code = %s
+        """, (semester["id"], course_code))
+        course_row = cur.fetchone()
 
         if not course_row:
             raise HTTPException(
@@ -1499,11 +1525,12 @@ async def student_submit_assignment(
         # -------------------------
         # Assignment validation
         # -------------------------
-        assignment = cur.execute("""
+        cur.execute("""
             SELECT 1
             FROM assignments
-            WHERE course_code = ? AND assignment_number = ?
-        """, (course_code, assignment_number)).fetchone()
+            WHERE course_code = %s AND assignment_number = %s
+        """, (course_code, assignment_number))
+        assignment = cur.fetchone()
 
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
@@ -1511,19 +1538,20 @@ async def student_submit_assignment(
         # -------------------------
         # Duplicate submission check
         # -------------------------
-        existing = cur.execute("""
+        cur.execute("""
             SELECT 1
             FROM submissions
-            WHERE student_id = ?
-              AND semester_name = ?
-              AND course_code = ?
-              AND assignment_number = ?
+            WHERE student_id = %s
+              AND semester_name = %s
+              AND course_code = %s
+              AND assignment_number = %s
         """, (
             student["student_id"],
             semester_name,
             course_code,
             assignment_number
-        )).fetchone()
+        ))
+        existing = cur.fetchone()
 
         if existing:
             raise HTTPException(
@@ -1613,85 +1641,61 @@ async def student_submit_assignment(
         # Store submission
         # -------------------------
         cur.execute("""
-            INSERT INTO submissions (
-                submitted_at,
-                semester_name,
-                student_name,
-                student_id,
-                student_email,
-                course_code,
-                assignment_number,
-                used_ai,
-                used_rewrite,
-                used_research,
-                used_complete,
-                evidence_text,
-                draft_text,
-                draft_file_name,
-                final_text,
-                stored_file_name,
-                stored_file_path,
-                label,
-                confidence,
-                decision,
-                explanation,
-                total_words_assessed,
-                total_chunks_assessed
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            submitted_at,
-            semester_name,
-            student["student_name"],
-            student["student_id"],
-            student["email"],
-            course_code,
-            assignment_number,
-            int(used_ai),
-            int(used_rewrite),
-            int(used_research),
-            int(used_complete),
-            evidence_text.strip() if evidence_text else "",
-            draft_text.strip() if draft_text else "",
-            safe_draft_name,
-            final_text,
-            safe_final_name,
-            str(stored_final_path),
-            label,
-            score,
-            decision,
-            explanation,
-            total_words_assessed,
-            total_chunks_assessed,
-        ))
+    INSERT INTO submissions (
+        submitted_at,
+        semester_name,
+        student_name,
+        student_id,
+        student_email,
+        course_code,
+        assignment_number,
+        used_ai,
+        used_rewrite,
+        used_research,
+        used_complete,
+        evidence_text,
+        draft_text,
+        draft_file_name,
+        final_text,
+        stored_file_name,
+        stored_file_path,
+        label,
+        confidence,
+        decision,
+        explanation,
+        total_words_assessed,
+        total_chunks_assessed
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    RETURNING id
+""", (
+    submitted_at,
+    semester_name,
+    student["student_name"],
+    student["student_id"],
+    student["email"],
+    course_code,
+    assignment_number,
+    int(used_ai),
+    int(used_rewrite),
+    int(used_research),
+    int(used_complete),
+    evidence_text.strip() if evidence_text else "",
+    draft_text.strip() if draft_text else "",
+    safe_draft_name,
+    final_text,
+    safe_final_name,
+    str(stored_final_path),
+    label,
+    score,
+    decision,
+    explanation,
+    total_words_assessed,
+    total_chunks_assessed,
+))
 
-        submission_id = cur.lastrowid
-        conn.commit()
-
-        return {
-            "message": "Submission stored successfully",
-            "submission_id": submission_id,
-            "receipt": {
-                "submission_id": submission_id,
-                "semester_name": semester_name,
-                "student_name": student["student_name"],
-                "student_id": student["student_id"],
-                "student_email": student["email"],
-                "course_code": course_code,
-                "assignment_number": assignment_number,
-                "submitted_at": submitted_at,
-                "label": label,
-                "confidence": round(score, 4),
-                "decision": decision,
-                "explanation": explanation,
-                "suspicious_sections": suspicious_sections,
-                "total_words_assessed": total_words_assessed,
-                "total_chunks_assessed": total_chunks_assessed,
-            }
-        }
-
-    finally:
-        conn.close()
+submission_id = cur.fetchone()["id"]
+conn.commit()
 
 
 @app.get("/api/teacher/submissions/{submission_id}/download-draft")
@@ -1705,11 +1709,12 @@ def teacher_download_draft(
     cur = conn.cursor()
 
     try:
-        row = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM submissions
-            WHERE id = ?
-        """, (submission_id,)).fetchone()
+            WHERE id = %s
+        """, (submission_id,))
+        row = cur.fetchone()
 
         if not row:
             raise HTTPException(status_code=404, detail="Submission not found")
@@ -1736,6 +1741,7 @@ def teacher_download_draft(
         )
 
     finally:
+        cur.close()
         conn.close()
 
 
@@ -1750,11 +1756,12 @@ def teacher_download_ai_report(
     cur = conn.cursor()
 
     try:
-        row = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM submissions
-            WHERE id = ?
-        """, (submission_id,)).fetchone()
+            WHERE id = %s
+        """, (submission_id,))
+        row = cur.fetchone()
 
         if not row:
             raise HTTPException(status_code=404, detail="Submission not found")
@@ -1924,6 +1931,7 @@ def teacher_download_ai_report(
             media_type="application/pdf"
         )
     finally:
+        cur.close()
         conn.close()
 
 @app.get("/api/student/submissions/{submission_id}/receipt-pdf")
@@ -1936,12 +1944,13 @@ def export_student_receipt_pdf(
     conn = get_conn()
     cur = conn.cursor()
 
-    row = cur.execute("""
+    cur.execute("""
         SELECT *
         FROM submissions
-        WHERE id = ?
-          AND student_email = ?
-    """, (submission_id, current_user["email"])).fetchone()
+        WHERE id = %s
+          AND student_email = %s
+    """, (submission_id, current_user["email"]))
+    row = cur.fetchone()
 
     conn.close()
 
@@ -2071,17 +2080,18 @@ def teacher_get_courses(
         if not semester:
             raise HTTPException(status_code=404, detail="Semester not found")
 
-        rows = cur.execute("""
+        cur.execute("""
             SELECT c.course_code, c.course_name
             FROM teacher_courses tc
             JOIN semester_courses sc ON sc.course_code = tc.course_code
             JOIN courses c ON c.course_code = tc.course_code
-            WHERE tc.teacher_email = ? AND sc.semester_id = ?
+            WHERE tc.teacher_email = %s AND sc.semester_id = %s
             ORDER BY c.course_code ASC
-        """, (current_user["email"], semester["id"])).fetchall()
-
+        """, (current_user["email"], semester["id"]))
+        rows = cur.fetchall()
         return {"courses": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -2099,15 +2109,17 @@ def teacher_get_assignments(
     cur = conn.cursor()
 
     try:
-        rows = cur.execute("""
+        cur.execute("""
             SELECT assignment_number, assignment_title
             FROM assignments
-            WHERE course_code = ?
+            WHERE course_code = %s
             ORDER BY assignment_number ASC
-        """, (course_code.strip(),)).fetchall()
+        """, (course_code.strip(),))
+        rows = cur.fetchall()
 
         return {"assignments": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -2129,7 +2141,7 @@ def teacher_get_submissions(
 
     try:
         search_term = f"%{student_search.strip()}%"
-        rows = cur.execute("""
+        cur.execute("""
             SELECT
                 id,
                 submitted_at,
@@ -2147,14 +2159,14 @@ def teacher_get_submissions(
                 total_words_assessed,
                 total_chunks_assessed
             FROM submissions
-            WHERE semester_name = ?
-              AND course_code = ?
-              AND assignment_number = ?
+            WHERE semester_name = %s
+              AND course_code = %s
+              AND assignment_number = %s
               AND (
-                    ? = '%%'
-                    OR student_name LIKE ?
-                    OR student_id LIKE ?
-                    OR student_email LIKE ?
+                    %s = '%%'
+                    OR student_name LIKE %s
+                    OR student_id LIKE %s
+                    OR student_email LIKE %s
                   )
             ORDER BY submitted_at DESC
         """, (
@@ -2165,10 +2177,12 @@ def teacher_get_submissions(
             search_term,
             search_term,
             search_term,
-        )).fetchall()
+        ))
+        rows = cur.fetchall()
 
         return {"submissions": [dict(r) for r in rows]}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -2183,11 +2197,12 @@ def teacher_download_original_file(
     cur = conn.cursor()
 
     try:
-        row = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM submissions
-            WHERE id = ?
-        """, (submission_id,)).fetchone()
+            WHERE id = %s
+        """, (submission_id,))
+        row = cur.fetchone()
 
         if not row:
             raise HTTPException(status_code=404, detail="Submission not found")
@@ -2210,6 +2225,7 @@ def teacher_download_original_file(
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
     finally:
+        cur.close()
         conn.close()
         
 @app.post("/api/teacher/add-student")
@@ -2233,51 +2249,55 @@ def teacher_add_student(
         if not semester_course_exists(cur, data.semester_name, data.course_code):
             raise HTTPException(status_code=400, detail="This course is not available in the selected semester")
 
-        existing_student = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM students
-            WHERE email = ? OR student_id = ?
-        """, (data.email.strip(), data.student_id.strip())).fetchone()
+            WHERE email = %s OR student_id = %s
+        """, (data.email.strip(), data.student_id.strip()))
+        existing_student = cur.fetchone()
 
         if existing_student:
             student_id_value = existing_student["student_id"]
         else:
-            existing_user = cur.execute("""
+            cur.execute("""
                 SELECT *
                 FROM users
-                WHERE email = ?
-            """, (data.email.strip(),)).fetchone()
+                WHERE email = %s
+            """, (data.email.strip(),))
+            existing_user = cur.fetchone()
 
             if not existing_user:
                 cur.execute("""
                     INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-                    VALUES (?, ?, 'student', 1, 0, 0)
+                    VALUES (%s, %s, 'student', 1, 0, 0)
                 """, (data.student_name.strip(), data.email.strip()))
 
             cur.execute("""
                 INSERT INTO students (student_name, email, student_id)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             """, (data.student_name.strip(), data.email.strip(), data.student_id.strip()))
 
             student_id_value = data.student_id.strip()
 
-        existing_enrollment = cur.execute("""
+        cur.execute("""
             SELECT 1
             FROM student_courses
-            WHERE student_id = ? AND course_code = ?
-        """, (student_id_value, data.course_code.strip())).fetchone()
+            WHERE student_id = %s AND course_code = %s
+        """, (student_id_value, data.course_code.strip()))
+        existing_enrollment = cur.fetchone()
 
         if existing_enrollment:
             raise HTTPException(status_code=400, detail="Student is already enrolled in this course")
 
         cur.execute("""
             INSERT INTO student_courses (student_id, course_code)
-            VALUES (?, ?)
+            VALUES (%s, %s)
         """, (student_id_value, data.course_code.strip()))
 
         conn.commit()
         return {"message": "Student added to course successfully"}
     finally:
+        cur.close()
         conn.close()
 
 
@@ -2299,7 +2319,7 @@ def teacher_export_csv(
 
     try:
         search_term = f"%{student_search.strip()}%"
-        rows = cur.execute("""
+        cur.execute("""
             SELECT
                 semester_name,
                 student_name,
@@ -2313,14 +2333,14 @@ def teacher_export_csv(
                 decision,
                 total_words_assessed
             FROM submissions
-            WHERE semester_name = ?
-              AND course_code = ?
-              AND assignment_number = ?
+            WHERE semester_name = %s
+              AND course_code = %s
+              AND assignment_number = %s
               AND (
-                    ? = '%%'
-                    OR student_name LIKE ?
-                    OR student_id LIKE ?
-                    OR student_email LIKE ?
+                    %s = '%%'
+                    OR student_name LIKE %s
+                    OR student_id LIKE %s
+                    OR student_email LIKE %s
                   )
             ORDER BY submitted_at DESC
         """, (
@@ -2331,7 +2351,8 @@ def teacher_export_csv(
             search_term,
             search_term,
             search_term,
-        )).fetchall()
+        ))
+        rows = cur.fetchall()
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -2373,6 +2394,7 @@ def teacher_export_csv(
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     finally:
+        cur.close()
         conn.close()
 
 
@@ -2387,11 +2409,12 @@ def teacher_allow_resubmission(
     cur = conn.cursor()
 
     try:
-        row = cur.execute("""
+        cur.execute("""
             SELECT *
             FROM submissions
-            WHERE id = ?
-        """, (submission_id,)).fetchone()
+            WHERE id = %s
+        """, (submission_id,))
+        row = cur.fetchone()
 
         if not row:
             raise HTTPException(status_code=404, detail="Submission not found")
@@ -2412,12 +2435,13 @@ def teacher_allow_resubmission(
 
         cur.execute("""
             DELETE FROM submissions
-            WHERE id = ?
+            WHERE id = %s
         """, (submission_id,))
 
         conn.commit()
         return {"message": "Resubmission allowed successfully"}
     finally:
+        cur.close()
         conn.close()
         
 #--------------------------------
@@ -2425,6 +2449,51 @@ def teacher_allow_resubmission(
 def root():
     return {"message": "AI Disclosure backend is running"}
 
-@app.get("/debug/db-path")
-def debug_db_path():
-    return {"db_path": str(DB_PATH)}
+@app.get("/debug/db")
+def debug_db():
+    return {"database_url": DATABASE_URL}
+
+#--------------------------------
+@app.get("/setup-admin")
+def setup_admin():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    full_name = "AI Disclosure Admin"
+    email = "aidisclosure@gmail.com"
+    plain_password = "!0no@ghost"
+    password_hash = hash_password(plain_password)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
+            full_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("SELECT id FROM admins WHERE email = %s", (email,))
+    existing = cur.fetchone()
+
+    if existing:
+        cur.execute("""
+            UPDATE admins
+            SET full_name = %s, password_hash = %s, is_active = 1
+            WHERE email = %s
+        """, (full_name, password_hash, email))
+        message = "Admin updated successfully"
+    else:
+        cur.execute("""
+            INSERT INTO admins (full_name, email, password_hash, is_active)
+            VALUES (%s, %s, %s, 1)
+        """, (full_name, email, password_hash))
+        message = "Admin created successfully"
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"message": message, "email": email}

@@ -16,3 +16,4 @@ torch
 openai
 email-validator
 huggingface_hub
+psycopg2-binary
