@@ -23,6 +23,7 @@ from uuid import uuid4
 
 from model_loader import predict_text
 from agent import decision_agent, explain_result
+from openai_helper import generate_explanation
 
 import sqlite3
 import textwrap
