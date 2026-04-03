@@ -46,20 +46,20 @@ security = HTTPBearer()
 
 app = FastAPI(title="AI Disclosure App API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # tighten later for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 origins = [
     "https://ai-portal.onrender.com",
     "https://ai-admin.onrender.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =========================================================
 # Paths / Config
@@ -2428,3 +2428,7 @@ def teacher_allow_resubmission(
     finally:
         conn.close()
         
+#--------------------------------
+@app.get("/")
+def root():
+    return {"message": "AI Disclosure backend is running"}
