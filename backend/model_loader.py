@@ -1,25 +1,41 @@
 from transformers import pipeline
 import torch
+import os
 
 MODEL_ID = "Bornali13/ai-disclosure-model"
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 print("USING HUGGING FACE MODEL:", MODEL_ID)
 
-device = 0 if torch.cuda.is_available() else -1
+_classifier = None
 
-classifier = pipeline(
-    "text-classification",
-    model=MODEL_ID,
-    tokenizer=MODEL_ID,
-    device=device
-)
 
-# -----------------------------
-# Predict function (LONG TEXT SAFE)
-# -----------------------------
+def get_classifier():
+    global _classifier
+
+    if _classifier is None:
+        device = 0 if torch.cuda.is_available() else -1
+
+        kwargs = {
+            "task": "text-classification",
+            "model": MODEL_ID,
+            "tokenizer": MODEL_ID,
+            "device": device,
+        }
+
+        if HF_TOKEN:
+            kwargs["token"] = HF_TOKEN
+
+        _classifier = pipeline(**kwargs)
+
+    return _classifier
+
+
 def predict_text(text, chunk_word_size=350):
     if not text or not text.strip():
         raise ValueError("Empty text provided.")
+
+    classifier = get_classifier()
 
     text = text.strip()
     words = text.split()
