@@ -1003,7 +1003,6 @@ def admin_create_teacher(
 
         otp = generate_otp()
         expires_at = datetime.utcnow() + timedelta(minutes=10)
-
         setup_link = f"{BASE_URL}/reset-password.html?email={email}&otp={otp}"
 
         cur.execute("""
@@ -1014,14 +1013,29 @@ def admin_create_teacher(
                 role,
                 is_active,
                 is_verified,
+                must_change_password
             )
-            VALUES (%s, %s, %s, 'teacher', 1, 1)
-        """, (teacher_name, email, None))
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            teacher_name,
+            email,
+            None,
+            "teacher",
+            1,
+            1,
+            1
+        ))
 
         cur.execute("""
-            INSERT INTO teachers (teacher_name, email)
+            INSERT INTO teachers (
+                teacher_name,
+                email
+            )
             VALUES (%s, %s)
-        """, (teacher_name, email))
+        """, (
+            teacher_name,
+            email
+        ))
 
         cur.execute("""
             INSERT INTO email_verifications (
@@ -1032,8 +1046,15 @@ def admin_create_teacher(
                 is_verified,
                 is_used
             )
-            VALUES (%s, %s, 'reset', %s, 0, 0)
-        """, (email, otp, expires_at))
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            email,
+            otp,
+            "reset",
+            expires_at,
+            0,
+            0
+        ))
 
         send_email_otp(
             to_email=email,
