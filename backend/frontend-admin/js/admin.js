@@ -19,7 +19,6 @@ const headers = {
 const alertBox = document.getElementById("alertBox");
 const successBox = document.getElementById("successBox");
 
-
 function clearMessages() {
   if (alertBox) {
     alertBox.classList.add("d-none");
@@ -160,15 +159,10 @@ async function loadCourses() {
     const courses = Array.isArray(data) ? data : data.courses || [];
 
     courseSelects.forEach((selectEl) => {
-      const placeholder =
-        selectEl.id === "assignmentCourseCode"
-          ? "Select Course"
-          : "Select Course";
-
       setSelectOptions(
         selectEl,
         courses,
-        placeholder,
+        "Select Course",
         "course_code",
         (item) => `${item.course_code} - ${item.course_name}`
       );
@@ -212,25 +206,32 @@ document.getElementById("teacherForm")?.addEventListener("submit", async (e) => 
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("teacherBtn") || form.querySelector("button[type='submit']");
 
   const teacher_name = document.getElementById("tName")?.value.trim();
   const email = document.getElementById("tEmail")?.value.trim();
+  const password = document.getElementById("tPassword")?.value.trim();
 
-  if (!teacher_name || !email) {
+  if (!teacher_name || !email || !password) {
     showError("Please complete all teacher fields.");
     return;
   }
 
+  if (password.length < 6) {
+    showError("Teacher password must be at least 6 characters.");
+    return;
+  }
+
   try {
-    setButtonLoading(submitBtn, "Adding Teacher...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Teacher...');
 
     const data = await apiJson(`${API_BASE}/api/admin/create-teacher`, "POST", {
       teacher_name,
       email,
+      password,
     });
 
-    showSuccess(data.message || "Teacher added successfully.");
+    showSuccess(data.message || "Teacher created successfully.");
     form.reset();
     await loadTeachers();
   } catch (err) {
@@ -246,27 +247,34 @@ document.getElementById("studentForm")?.addEventListener("submit", async (e) => 
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("studentBtn") || form.querySelector("button[type='submit']");
 
   const student_name = document.getElementById("sName")?.value.trim();
   const email = document.getElementById("sEmail")?.value.trim();
   const student_id = document.getElementById("sId")?.value.trim();
+  const password = document.getElementById("sPassword")?.value.trim();
 
-  if (!student_name || !email || !student_id) {
+  if (!student_name || !email || !student_id || !password) {
     showError("Please complete all student fields.");
     return;
   }
 
+  if (password.length < 6) {
+    showError("Student password must be at least 6 characters.");
+    return;
+  }
+
   try {
-    setButtonLoading(submitBtn, "Adding Student...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Student...');
 
     const data = await apiJson(`${API_BASE}/api/admin/create-student`, "POST", {
       student_name,
       email,
       student_id,
+      password,
     });
 
-    showSuccess(data.message || "Student added successfully.");
+    showSuccess(data.message || "Student created successfully.");
     form.reset();
   } catch (err) {
     showError(err.message || "Failed to add student.");
@@ -281,7 +289,7 @@ document.getElementById("semesterForm")?.addEventListener("submit", async (e) =>
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("semesterBtn") || form.querySelector("button[type='submit']");
   const semester_name = document.getElementById("semesterName")?.value.trim();
 
   if (!semester_name) {
@@ -290,7 +298,7 @@ document.getElementById("semesterForm")?.addEventListener("submit", async (e) =>
   }
 
   try {
-    setButtonLoading(submitBtn, "Adding Semester...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Semester...');
 
     const data = await apiJson(`${API_BASE}/api/admin/create-semester`, "POST", {
       semester_name,
@@ -312,7 +320,7 @@ document.getElementById("courseForm")?.addEventListener("submit", async (e) => {
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("courseBtn") || form.querySelector("button[type='submit']");
   const course_code = document.getElementById("courseCode")?.value.trim();
   const course_name = document.getElementById("courseName")?.value.trim();
 
@@ -322,7 +330,7 @@ document.getElementById("courseForm")?.addEventListener("submit", async (e) => {
   }
 
   try {
-    setButtonLoading(submitBtn, "Adding Course...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Course...');
 
     const data = await apiJson(`${API_BASE}/api/admin/create-course`, "POST", {
       course_code,
@@ -345,7 +353,8 @@ document.getElementById("assignSemesterCourseForm")?.addEventListener("submit", 
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn =
+    document.getElementById("assignSemesterCourseBtn") || form.querySelector("button[type='submit']");
   const semester_name = document.getElementById("assignSemesterName")?.value.trim();
   const course_code = document.getElementById("assignSemesterCourseCode")?.value.trim();
 
@@ -355,7 +364,7 @@ document.getElementById("assignSemesterCourseForm")?.addEventListener("submit", 
   }
 
   try {
-    setButtonLoading(submitBtn, "Assigning Course...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Assigning Course...');
 
     const data = await apiJson(`${API_BASE}/api/admin/assign-semester-course`, "POST", {
       semester_name,
@@ -377,7 +386,7 @@ document.getElementById("assignmentForm")?.addEventListener("submit", async (e) 
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("assignmentBtn") || form.querySelector("button[type='submit']");
   const course_code = document.getElementById("assignmentCourseCode")?.value.trim();
   const assignment_number = document.getElementById("assignmentNumber")?.value.trim();
   const assignment_title = document.getElementById("assignmentTitle")?.value.trim();
@@ -388,7 +397,7 @@ document.getElementById("assignmentForm")?.addEventListener("submit", async (e) 
   }
 
   try {
-    setButtonLoading(submitBtn, "Adding Assignment...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Assignment...');
 
     const data = await apiJson(`${API_BASE}/api/admin/create-assignment`, "POST", {
       course_code,
@@ -411,7 +420,7 @@ document.getElementById("assignTeacherForm")?.addEventListener("submit", async (
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn = document.getElementById("assignTeacherBtn") || form.querySelector("button[type='submit']");
   const teacher_email = document.getElementById("assignTeacherEmail")?.value.trim();
   const course_code = document.getElementById("assignCourseCode")?.value.trim();
 
@@ -421,7 +430,7 @@ document.getElementById("assignTeacherForm")?.addEventListener("submit", async (
   }
 
   try {
-    setButtonLoading(submitBtn, "Assigning Teacher...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Assigning Teacher...');
 
     const data = await apiJson(`${API_BASE}/api/admin/assign-teacher-course`, "POST", {
       teacher_email,
@@ -445,7 +454,8 @@ document.getElementById("adminResetPasswordForm")?.addEventListener("submit", as
   clearMessages();
 
   const form = e.currentTarget;
-  const submitBtn = form.querySelector("button[type='submit']");
+  const submitBtn =
+    document.getElementById("resetPasswordEmailBtn") || form.querySelector("button[type='submit']");
   const role = document.getElementById("resetUserRole")?.value.trim();
   const email = document.getElementById("resetUserEmail")?.value.trim();
 
@@ -455,7 +465,7 @@ document.getElementById("adminResetPasswordForm")?.addEventListener("submit", as
   }
 
   try {
-    setButtonLoading(submitBtn, "Sending Reset Email...");
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Sending Reset Email...');
 
     const data = await apiJson(`${API_BASE}/api/admin/send-reset-email`, "POST", {
       role,

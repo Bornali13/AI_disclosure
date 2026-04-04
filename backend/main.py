@@ -409,12 +409,14 @@ class AdminLoginRequest(BaseModel):
 class AdminCreateTeacherRequest(BaseModel):
     teacher_name: str
     email: EmailStr
+    password: str
 
 
 class AdminCreateStudentRequest(BaseModel):
     student_name: str
     email: EmailStr
     student_id: str
+    password: str
 
 
 class AdminCreateCourseRequest(BaseModel):
@@ -983,28 +985,23 @@ def admin_create_teacher(
     try:
         teacher_name = data.teacher_name.strip()
         email = data.email.strip().lower()
+        password = data.password.strip()
+        
+        if len(password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-        cur.execute("""
-            SELECT 1
-            FROM users
-            WHERE email = %s
-        """, (email,))
+        cur.execute("SELECT 1 FROM users WHERE email = %s", (email,))
         existing_user = cur.fetchone()
 
-        cur.execute("""
-            SELECT 1
-            FROM teachers
-            WHERE email = %s
-        """, (email,))
+        cur.execute("SELECT 1 FROM teachers WHERE email = %s", (email,))
         existing_teacher = cur.fetchone()
+
 
         if existing_user or existing_teacher:
             raise HTTPException(status_code=400, detail="Teacher email already exists")
 
-        otp = generate_otp()
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
-        setup_link = f"{BASE_URL}/reset-password.html?email={email}&otp={otp}"
-
+        reset_link = f"{BASE_URL}/reset-password.html"
+        
         cur.execute("""
             INSERT INTO users (
                 full_name,
@@ -1023,56 +1020,40 @@ def admin_create_teacher(
             "teacher",
             1,
             1,
-            1
+            0
         ))
 
         cur.execute("""
             INSERT INTO teachers (
                 teacher_name,
-                email
-            )
+                email)
             VALUES (%s, %s)
-        """, (
-            teacher_name,
-            email
-        ))
+        """, (teacher_name,email))
 
-        cur.execute("""
-            INSERT INTO email_verifications (
-                email,
-                otp_code,
-                purpose,
-                expires_at,
-                is_verified,
-                is_used
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            email,
-            otp,
-            "reset",
-            expires_at,
-            0,
-            0
-        ))
 
         send_email_otp(
             to_email=email,
             subject="AI Disclosure - Teacher Account Setup",
-            plain_text=f"""Your teacher account has been created.
+            plain_text=f"""Dear {teacher_name},
 
-Click the link below to set your password:
-{setup_link}
+Your teacher account has been created successfully.
 
-If the link does not open, use this OTP code: {otp}
+Username: {teacher_name}
+Email: {email}
+Password: {password}
 
-This link/code will expire in 10 minutes.
+You can sign in using the above credentials.
 
-If you did not expect this email, please ignore it."""
+If you want to reset your password later, please use the link below:
+{reset_link}
+
+Regards,
+AI Disclosure Team
+"""
         )
 
         conn.commit()
-        return {"message": "Teacher created and setup email sent successfully"}
+        return {"message": "Teacher created successfully and email sent"}
 
     except HTTPException:
         conn.rollback()
@@ -1094,35 +1075,91 @@ def admin_create_student(
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM users WHERE email = %s", (data.email.strip(),))
-    existing_user = cur.fetchone()
+    try:
+        student_name = data.student_name.strip()
+        email = data.email.strip().lower()
+        student_id = data.student_id.strip()
+        password = data.password.strip()
 
-    cur.execute("SELECT * FROM students WHERE email = %s OR student_id = %s",
-    (data.email.strip(), data.student_id.strip()))
-    existing_student = cur.fetchone()
+        if len(password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    if existing_user or existing_student:
+        cur.execute("SELECT 1 FROM users WHERE email = %s", (email,))
+        existing_user = cur.fetchone()
+
+        cur.execute("""
+            SELECT 1 FROM students
+            WHERE email = %s OR student_id = %s
+        """, (email, student_id))
+        existing_student = cur.fetchone()
+
+        if existing_user or existing_student:
+            raise HTTPException(status_code=400, detail="Student email or student ID already exists")
+
+        reset_link = f"{BASE_URL}/reset-password.html"
+
+        cur.execute("""
+            INSERT INTO users (
+                full_name,
+                email,
+                password_hash,
+                role,
+                is_active,
+                is_verified,
+                must_change_password
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            student_name,
+            email,
+            hash_password(password),
+            "student",
+            1,
+            1,
+            0
+        ))
+
+        cur.execute("""
+            INSERT INTO students (student_name, email, student_id)
+            VALUES (%s, %s, %s)
+        """, (student_name, email, student_id))
+
+        send_email_otp(
+            to_email=email,
+            subject="AI Disclosure - Student Account Created",
+            plain_text=f"""Dear {student_name},
+
+Your student account has been created successfully.
+
+Username: {student_name}
+Email: {email}
+Student ID: {student_id}
+Password: {password}
+
+You can sign in using the above credentials.
+
+If you want to reset your password later, please use the link below:
+{reset_link}
+
+Regards,
+AI Disclosure Team
+"""
+        )
+
+        conn.commit()
+        return {"message": "Student created successfully and email sent"}
+
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create student: {str(e)}")
+    finally:
+        cur.close()
         conn.close()
-        raise HTTPException(status_code=400, detail="Student email or student ID already exists")
-    
 
-    cur.execute("""
-        INSERT INTO users (full_name, email, role, is_active, is_verified)
-        VALUES (%s, %s, 'student', 1, 0)
-    """, (data.student_name.strip(), data.email.strip()))
-
-    cur.execute("""
-        INSERT INTO students (student_name, email, student_id)
-        VALUES (%s, %s, %s)
-    """, (data.student_name.strip(), data.email.strip(), data.student_id.strip()))
-
-    conn.commit()
-    conn.close()
-
-    return {"message": "Student added successfully"}
-
-class AdminCreateSemesterRequest(BaseModel):
-    semester_name: str
+     
 
 
 @app.post("/api/admin/create-semester")

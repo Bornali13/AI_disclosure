@@ -1,131 +1,323 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Disclosure • Admin Dashboard</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #f6f8ff 0%, #f1f5ff 40%, #eef7ff 100%);
+      min-height: 100vh;
+    }
+
+    .navbar-brand {
+      letter-spacing: 0.3px;
+    }
+
+    .card-soft {
+      border: 0;
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(28, 87, 255, 0.08);
+    }
+
+    .card-soft h5 {
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .section-note {
+      font-size: 0.92rem;
+      color: #6b7280;
+    }
+
+    .page-title {
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .page-subtitle {
+      color: #6b7280;
+    }
+
+    .form-control,
+    .form-select {
+      border-radius: 12px;
+      min-height: 44px;
+    }
+
+    .btn {
+      border-radius: 12px;
+      min-height: 44px;
+      font-weight: 600;
+    }
+
+    .alert {
+      border-radius: 14px;
+    }
+  </style>
 </head>
-<body class="bg-light">
+<body>
+  <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-semibold" href="#">
+        <i class="bi bi-shield-lock me-2"></i>AI Disclosure Admin
+      </a>
+      <button id="logoutBtn" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-box-arrow-right me-1"></i>Logout
+      </button>
+    </div>
+  </nav>
 
-<div class="container py-5">
-
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Admin Dashboard</h2>
-    <button id="logoutBtn" class="btn btn-outline-danger btn-sm">Logout</button>
-  </div>
-
-  <div id="alertBox" class="alert alert-danger d-none"></div>
-  <div id="successBox" class="alert alert-success d-none"></div>
-
-  <div class="row g-4">
-
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Add Teacher</h5>
-        <form id="teacherForm">
-          <input class="form-control mb-2" id="tName" placeholder="Teacher Name" required>
-          <input class="form-control mb-2" id="tEmail" type="email" placeholder="Teacher Email" required>
-          <button class="btn btn-primary w-100" type="submit">Add Teacher</button>
-        </form>
-        <div class="form-text mt-2">A password setup/reset email will be sent to the teacher.</div>
-      </div>
+  <main class="container py-5">
+    <div class="mb-4">
+      <h1 class="h3 page-title mb-2">Admin Dashboard</h1>
+      <p class="page-subtitle mb-0">
+        Manage teachers, students, semesters, courses, assignments, and password reset access.
+      </p>
     </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Add Student</h5>
-        <form id="studentForm">
-          <input class="form-control mb-2" id="sName" placeholder="Student Name" required>
-          <input class="form-control mb-2" id="sEmail" type="email" placeholder="Student Email" required>
-          <input class="form-control mb-2" id="sId" placeholder="Student ID" required>
-          <button class="btn btn-success w-100" type="submit">Add Student</button>
-        </form>
+    <div id="alertBox" class="alert alert-danger d-none" role="alert"></div>
+    <div id="successBox" class="alert alert-success d-none" role="alert"></div>
+
+    <div class="row g-4">
+
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Add Teacher</h5>
+            <form id="teacherForm" novalidate>
+              <div class="mb-3">
+                <label for="tName" class="form-label">Teacher Name</label>
+                <input class="form-control" id="tName" placeholder="Enter teacher name" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="tEmail" class="form-label">Teacher Email</label>
+                <input class="form-control" id="tEmail" type="email" placeholder="Enter teacher email" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="tPassword" class="form-label">Initial Password</label>
+                <input class="form-control" id="tPassword" type="password" minlength="6" placeholder="Enter initial password" required />
+              </div>
+
+              <button id="teacherBtn" class="btn btn-primary w-100" type="submit">
+                <i class="bi bi-person-plus me-1"></i>Add Teacher
+              </button>
+            </form>
+
+            <p class="section-note mt-3 mb-0">
+              The teacher will receive an email with account details and the shared reset-password link.
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Add Semester</h5>
-        <form id="semesterForm">
-          <input class="form-control mb-2" id="semesterName" placeholder="Semester Name (e.g. Semester 1, 2026)" required>
-          <button class="btn btn-dark w-100" type="submit">Add Semester</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Add Student</h5>
+            <form id="studentForm" novalidate>
+              <div class="mb-3">
+                <label for="sName" class="form-label">Student Name</label>
+                <input class="form-control" id="sName" placeholder="Enter student name" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="sEmail" class="form-label">Student Email</label>
+                <input class="form-control" id="sEmail" type="email" placeholder="Enter student email" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="sId" class="form-label">Student ID</label>
+                <input class="form-control" id="sId" placeholder="Enter student ID" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="sPassword" class="form-label">Initial Password</label>
+                <input class="form-control" id="sPassword" type="password" minlength="6" placeholder="Enter initial password" required />
+              </div>
+
+              <button id="studentBtn" class="btn btn-success w-100" type="submit">
+                <i class="bi bi-person-badge me-1"></i>Add Student
+              </button>
+            </form>
+
+            <p class="section-note mt-3 mb-0">
+              The student will receive an email with account details and the shared reset-password link.
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Add Course</h5>
-        <form id="courseForm">
-          <input class="form-control mb-2" id="courseCode" placeholder="Course Code (e.g. COMP501)" required>
-          <input class="form-control mb-2" id="courseName" placeholder="Course Name" required>
-          <button class="btn btn-warning w-100" type="submit">Add Course</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Add Semester</h5>
+            <form id="semesterForm" novalidate>
+              <div class="mb-3">
+                <label for="semesterName" class="form-label">Semester Name</label>
+                <input
+                  class="form-control"
+                  id="semesterName"
+                  placeholder="e.g. Semester 1, 2026"
+                  required
+                />
+              </div>
+
+              <button id="semesterBtn" class="btn btn-dark w-100" type="submit">
+                <i class="bi bi-calendar-plus me-1"></i>Add Semester
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Assign Course to Semester</h5>
-        <form id="assignSemesterCourseForm">
-          <select class="form-select mb-2" id="assignSemesterName" required>
-            <option value="">Select Semester</option>
-          </select>
-          <select class="form-select mb-2" id="assignSemesterCourseCode" required>
-            <option value="">Select Course</option>
-          </select>
-          <button class="btn btn-secondary w-100" type="submit">Assign Course</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Add Course</h5>
+            <form id="courseForm" novalidate>
+              <div class="mb-3">
+                <label for="courseCode" class="form-label">Course Code</label>
+                <input class="form-control" id="courseCode" placeholder="e.g. COMP501" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="courseName" class="form-label">Course Name</label>
+                <input class="form-control" id="courseName" placeholder="Enter course name" required />
+              </div>
+
+              <button id="courseBtn" class="btn btn-warning w-100" type="submit">
+                <i class="bi bi-book me-1"></i>Add Course
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Add Assignment</h5>
-        <form id="assignmentForm">
-          <select class="form-select mb-2" id="assignmentCourseCode" required>
-            <option value="">Select Course</option>
-          </select>
-          <input class="form-control mb-2" id="assignmentNumber" placeholder="Assignment Number (e.g. Assignment 1)" required>
-          <input class="form-control mb-2" id="assignmentTitle" placeholder="Assignment Title" required>
-          <button class="btn btn-success w-100" type="submit">Add Assignment</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Assign Course to Semester</h5>
+            <form id="assignSemesterCourseForm" novalidate>
+              <div class="mb-3">
+                <label for="assignSemesterName" class="form-label">Semester</label>
+                <select class="form-select" id="assignSemesterName" required>
+                  <option value="">Select Semester</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="assignSemesterCourseCode" class="form-label">Course</label>
+                <select class="form-select" id="assignSemesterCourseCode" required>
+                  <option value="">Select Course</option>
+                </select>
+              </div>
+
+              <button id="assignSemesterCourseBtn" class="btn btn-secondary w-100" type="submit">
+                <i class="bi bi-link-45deg me-1"></i>Assign Course
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Assign Teacher to Course</h5>
-        <form id="assignTeacherForm">
-          <select class="form-select mb-2" id="assignTeacherEmail" required>
-            <option value="">Select Teacher</option>
-          </select>
-          <select class="form-select mb-2" id="assignCourseCode" required>
-            <option value="">Select Course</option>
-          </select>
-          <button class="btn btn-info w-100" type="submit">Assign Teacher</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Add Assignment</h5>
+            <form id="assignmentForm" novalidate>
+              <div class="mb-3">
+                <label for="assignmentCourseCode" class="form-label">Course</label>
+                <select class="form-select" id="assignmentCourseCode" required>
+                  <option value="">Select Course</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="assignmentNumber" class="form-label">Assignment Number</label>
+                <input class="form-control" id="assignmentNumber" placeholder="e.g. Assignment 1" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="assignmentTitle" class="form-label">Assignment Title</label>
+                <input class="form-control" id="assignmentTitle" placeholder="Enter assignment title" required />
+              </div>
+
+              <button id="assignmentBtn" class="btn btn-success w-100" type="submit">
+                <i class="bi bi-file-earmark-plus me-1"></i>Add Assignment
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="col-md-6">
-      <div class="card p-3 shadow-sm">
-        <h5>Send Password Reset Email</h5>
-        <form id="adminResetPasswordForm">
-          <select class="form-select mb-2" id="resetUserRole" required>
-            <option value="">Select Role</option>
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-          </select>
-          <input class="form-control mb-2" id="resetUserEmail" type="email" placeholder="User Email" required>
-          <button class="btn btn-danger w-100" type="submit">Send Reset Email</button>
-        </form>
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Assign Teacher to Course</h5>
+            <form id="assignTeacherForm" novalidate>
+              <div class="mb-3">
+                <label for="assignTeacherEmail" class="form-label">Teacher</label>
+                <select class="form-select" id="assignTeacherEmail" required>
+                  <option value="">Select Teacher</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="assignCourseCode" class="form-label">Course</label>
+                <select class="form-select" id="assignCourseCode" required>
+                  <option value="">Select Course</option>
+                </select>
+              </div>
+
+              <button id="assignTeacherBtn" class="btn btn-info w-100" type="submit">
+                <i class="bi bi-person-workspace me-1"></i>Assign Teacher
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
+
+      <div class="col-lg-6">
+        <div class="card card-soft h-100">
+          <div class="card-body p-4">
+            <h5 class="mb-3">Send Password Reset Email</h5>
+            <form id="adminResetPasswordForm" novalidate>
+              <div class="mb-3">
+                <label for="resetUserRole" class="form-label">Role</label>
+                <select class="form-select" id="resetUserRole" required>
+                  <option value="">Select Role</option>
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label for="resetUserEmail" class="form-label">User Email</label>
+                <input class="form-control" id="resetUserEmail" type="email" placeholder="Enter user email" required />
+              </div>
+
+              <button id="resetPasswordEmailBtn" class="btn btn-danger w-100" type="submit">
+                <i class="bi bi-envelope-arrow-up me-1"></i>Send Reset Email
+              </button>
+            </form>
+
+            <p class="section-note mt-3 mb-0">
+              This sends the same shared reset-password link used by students and teachers from the login page.
+            </p>
+          </div>
+        </div>
+      </div>
+
     </div>
+  </main>
 
-  </div>
-</div>
-
-<script src="js/admin.js"></script>
+  <script src="js/admin.js"></script>
 </body>
 </html>
