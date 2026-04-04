@@ -986,7 +986,7 @@ def admin_create_teacher(
         teacher_name = data.teacher_name.strip()
         email = data.email.strip().lower()
         password = data.password.strip()
-        
+
         if len(password) < 6:
             raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
@@ -996,12 +996,11 @@ def admin_create_teacher(
         cur.execute("SELECT 1 FROM teachers WHERE email = %s", (email,))
         existing_teacher = cur.fetchone()
 
-
         if existing_user or existing_teacher:
             raise HTTPException(status_code=400, detail="Teacher email already exists")
 
         reset_link = f"{BASE_URL}/reset-password.html"
-        
+
         cur.execute("""
             INSERT INTO users (
                 full_name,
@@ -1016,7 +1015,7 @@ def admin_create_teacher(
         """, (
             teacher_name,
             email,
-            None,
+            hash_password(password),
             "teacher",
             1,
             1,
@@ -1024,16 +1023,13 @@ def admin_create_teacher(
         ))
 
         cur.execute("""
-            INSERT INTO teachers (
-                teacher_name,
-                email)
+            INSERT INTO teachers (teacher_name, email)
             VALUES (%s, %s)
-        """, (teacher_name,email))
-
+        """, (teacher_name, email))
 
         send_email_otp(
             to_email=email,
-            subject="AI Disclosure - Teacher Account Setup",
+            subject="AI Disclosure - Teacher Account Created",
             plain_text=f"""Dear {teacher_name},
 
 Your teacher account has been created successfully.
@@ -1064,6 +1060,8 @@ AI Disclosure Team
     finally:
         cur.close()
         conn.close()
+
+
 
 
 
