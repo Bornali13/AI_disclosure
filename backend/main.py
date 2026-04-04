@@ -623,7 +623,12 @@ def verify_register_otp(data: VerifyOtpRequest):
         conn.close()
         raise HTTPException(status_code=400, detail="Invalid verification code")
 
-    if datetime.utcnow() > datetime.fromisoformat(row["expires_at"]):
+    expires_at = row["expires_at"]
+
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+
+    if datetime.utcnow() > expires_at.replace(tzinfo=None):
         conn.close()
         raise HTTPException(status_code=400, detail="Verification code expired")
 
@@ -843,7 +848,12 @@ def verify_reset_otp(data: ResetVerifyRequest):
         conn.close()
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
-    if datetime.utcnow() > datetime.fromisoformat(row["expires_at"]):
+    expires_at = row["expires_at"]
+
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+
+    if datetime.utcnow() > expires_at.replace(tzinfo=None):
         conn.close()
         raise HTTPException(status_code=400, detail="OTP expired")
 
@@ -1062,9 +1072,6 @@ AI Disclosure Team
         conn.close()
 
 
-
-
-
 @app.post("/api/admin/create-student")
 def admin_create_student(
     data: AdminCreateStudentRequest,
@@ -1157,7 +1164,7 @@ AI Disclosure Team
         cur.close()
         conn.close()
 
-     
+
 
 
 @app.post("/api/admin/create-semester")
