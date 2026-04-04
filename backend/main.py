@@ -1227,8 +1227,13 @@ def admin_send_reset_email(
     cur = conn.cursor()
 
     try:
-        cur.execute("""SELECT * FROM users
-        WHERE email = %s AND role = %s""", (data.email.strip(), data.role.strip()))
+        email = data.email.strip()
+        role = data.role.strip()
+
+        cur.execute("""
+            SELECT * FROM users
+            WHERE email = %s AND role = %s
+        """, (email, role))
         user = cur.fetchone()
 
         if not user:
@@ -1240,14 +1245,24 @@ def admin_send_reset_email(
         cur.execute("""
             INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
             VALUES (%s, %s, 'reset', %s, 0, 0)
-        """, (data.email.strip(), otp, expires_at))
+        """, (email, otp, expires_at))
 
         conn.commit()
 
+        reset_link = f"{BASE_URL}/reset-password.html?email={email}&otp={otp}"
+
         send_email_otp(
-            to_email=data.email.strip(),
+            to_email=email,
             subject="AI Disclosure - Password Reset",
-            plain_text=f"Your reset code is: {otp}"
+            plain_text=f"""You requested a password reset.
+
+Click the link below to reset your password:
+{reset_link}
+
+This link/code will expire in 10 minutes.
+
+If you did not request this, please ignore this email.
+"""
         )
 
         return {"message": "Reset email sent successfully"}
