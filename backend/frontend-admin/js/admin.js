@@ -19,6 +19,7 @@ const headers = {
 const alertBox = document.getElementById("alertBox");
 const successBox = document.getElementById("successBox");
 
+
 function clearMessages() {
   if (alertBox) {
     alertBox.classList.add("d-none");

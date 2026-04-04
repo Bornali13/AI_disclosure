@@ -74,7 +74,7 @@ EXPORTS_DIR = DATA_DIR / "exports"
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
-
+BASE_URL = os.getenv("BASE_URL", "https://ai-admin-uka5.onrender.com")
 # Model path (keep in code directory)
 MODEL_ID = "Bornali13/ai-disclosure-model"
 
@@ -110,7 +110,6 @@ def init_db():
             role TEXT NOT NULL CHECK(role IN ('student', 'teacher')),
             is_active INTEGER DEFAULT 1,
             is_verified INTEGER DEFAULT 0,
-            must_change_password INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -528,12 +527,16 @@ def send_email_otp(to_email: str, subject: str, plain_text: str):
         to_emails=to_email,
         subject=subject,
         plain_text_content=plain_text,
-        html_content=f"<p>{plain_text}</p>"
+        html_content=f"<pre>{plain_text}</pre>"
     )
 
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
+        print("SENDGRID STATUS:", response.status_code)
+        print("SENDGRID TO:", to_email)
+        print("SENDGRID BODY:", response.body)
+        print("SENDGRID HEADERS:", response.headers)
         if response.status_code not in (200, 202):
             raise HTTPException(
                 status_code=500,
@@ -542,6 +545,7 @@ def send_email_otp(to_email: str, subject: str, plain_text: str):
     except HTTPException:
         raise
     except Exception as e:
+        print("SENDGRID ERROR:", str(e))
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 
@@ -567,8 +571,8 @@ def register_student(data: StudentRegisterRequest):
         raise HTTPException(status_code=400, detail="Student email or student ID already exists")
 
     cur.execute("""
-        INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-        VALUES (%s, %s, 'student', 1, 0, 0)
+        INSERT INTO users (full_name, email, role, is_active, is_verified)
+        VALUES (%s, %s, 'student', 1, 0)
     """, (data.full_name.strip(), data.email.strip()))
 
     cur.execute("""
@@ -725,7 +729,6 @@ def login(data: LoginRequest):
 
     return {
         "message": "Login successful",
-        "must_change_password": bool(user["must_change_password"]),
         "access_token": token,
         "user": {
             "id": user["id"],
@@ -765,9 +768,9 @@ def change_password(
 
     cur.execute("""
         UPDATE users
-        SET password_hash = %s, must_change_password = 0
+        SET password_hash = %s,
         WHERE id = %s
-    """, (hash_password(data.new_password), user["id"]))
+    """, (hash_password(data.new_password), data.email.strip()))
 
     conn.commit()
     conn.close()
@@ -799,12 +802,21 @@ def request_reset_otp(data: ResetRequest):
 
     conn.commit()
     conn.close()
-
+    
+    reset_link = f"{BASE_URL}/reset-password.html?email={data.email.strip()}&otp={otp}"
+    
     send_email_otp(
         to_email=data.email.strip(),
         subject="AI Disclosure - Password Reset Code",
-        plain_text=f"Your password reset code is: {otp}. It will expire in 10 minutes."
-        )
+        plain_text=f"""You requested a password reset.
+
+    Click the link below to reset your password:{reset_link}
+
+    If the link does not open, use this OTP code: {otp}
+
+    This link/code will expire in 10 minutes.
+    """
+    )
 
     return {
         "message": "OTP sent successfully.",
@@ -969,48 +981,88 @@ def admin_create_teacher(
     cur = conn.cursor()
 
     try:
-        # FIXED SELECT
-        cur.execute("SELECT * FROM users WHERE email = %s", (data.email.strip(),))
+        teacher_name = data.teacher_name.strip()
+        email = data.email.strip().lower()
+
+        cur.execute("""
+            SELECT 1
+            FROM users
+            WHERE email = %s
+        """, (email,))
         existing_user = cur.fetchone()
 
-        cur.execute("SELECT * FROM teachers WHERE email = %s", (data.email.strip(),))
+        cur.execute("""
+            SELECT 1
+            FROM teachers
+            WHERE email = %s
+        """, (email,))
         existing_teacher = cur.fetchone()
 
         if existing_user or existing_teacher:
             raise HTTPException(status_code=400, detail="Teacher email already exists")
 
-        # FIXED INSERT
+        otp = generate_otp()
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        setup_link = f"{BASE_URL}/reset-password.html?email={email}&otp={otp}"
+
         cur.execute("""
-            INSERT INTO users (full_name, email, password_hash, role, is_active, is_verified, must_change_password)
-            VALUES (%s, %s, NULL, 'teacher', 1, 1, 1)
-        """, (data.teacher_name.strip(), data.email.strip()))
+            INSERT INTO users (
+                full_name,
+                email,
+                password_hash,
+                role,
+                is_active,
+                is_verified,
+            )
+            VALUES (%s, %s, %s, 'teacher', 1, 1)
+        """, (teacher_name, email, None))
 
         cur.execute("""
             INSERT INTO teachers (teacher_name, email)
             VALUES (%s, %s)
-        """, (data.teacher_name.strip(), data.email.strip()))
-
-        otp = generate_otp()
-        expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+        """, (teacher_name, email))
 
         cur.execute("""
-            INSERT INTO email_verifications (email, otp_code, purpose, expires_at, is_verified, is_used)
+            INSERT INTO email_verifications (
+                email,
+                otp_code,
+                purpose,
+                expires_at,
+                is_verified,
+                is_used
+            )
             VALUES (%s, %s, 'reset', %s, 0, 0)
-        """, (data.email.strip(), otp, expires_at))
-
-        conn.commit()
+        """, (email, otp, expires_at))
 
         send_email_otp(
-            to_email=data.email.strip(),
+            to_email=email,
             subject="AI Disclosure - Teacher Account Setup",
-            plain_text=f"Your account is created. Use this code to set password: {otp}"
+            plain_text=f"""Your teacher account has been created.
+
+Click the link below to set your password:
+{setup_link}
+
+If the link does not open, use this OTP code: {otp}
+
+This link/code will expire in 10 minutes.
+
+If you did not expect this email, please ignore it."""
         )
 
-        return {"message": "Teacher created and setup email sent"}
+        conn.commit()
+        return {"message": "Teacher created and setup email sent successfully"}
 
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create teacher: {str(e)}")
     finally:
         cur.close()
         conn.close()
+
 
 
 @app.post("/api/admin/create-student")
@@ -1034,8 +1086,8 @@ def admin_create_student(
     
 
     cur.execute("""
-        INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-        VALUES (%s, %s, 'student', 1, 0, 0)
+        INSERT INTO users (full_name, email, role, is_active, is_verified)
+        VALUES (%s, %s, 'student', 1, 0)
     """, (data.student_name.strip(), data.email.strip()))
 
     cur.execute("""
@@ -1145,6 +1197,7 @@ def admin_assign_semester_course(
         return {"message": "Course assigned successfully"}
 
     finally:
+        cur.close()
         conn.close()
         
 @app.post("/api/admin/create-assignment")
@@ -2284,8 +2337,8 @@ def teacher_add_student(
 
             if not existing_user:
                 cur.execute("""
-                    INSERT INTO users (full_name, email, role, is_active, is_verified, must_change_password)
-                    VALUES (%s, %s, 'student', 1, 0, 0)
+                    INSERT INTO users (full_name, email, role, is_active, is_verified)
+                    VALUES (%s, %s, 'student', 1, 0)
                 """, (data.student_name.strip(), data.email.strip()))
 
             cur.execute("""
@@ -2492,44 +2545,3 @@ def debug_admins():
             conn.close()
 
 #--------------------------------
-@app.get("/setup-admin")
-def setup_admin():
-    conn = None
-    cur = None
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-
-        full_name = "AI Disclosure Admin"
-        email = "aidisclosure@gmail.com"
-        plain_password = "!0no@ghost"
-        password_hash = hash_password(plain_password)
-
-        cur.execute("SELECT id, email FROM admins WHERE email = %s", (email,))
-        existing = cur.fetchone()
-
-        if existing:
-            cur.execute("""
-                UPDATE admins
-                SET full_name = %s, password_hash = %s, is_active = 1
-                WHERE email = %s
-            """, (full_name, password_hash, email))
-            message = "Admin updated successfully"
-        else:
-            cur.execute("""
-                INSERT INTO admins (full_name, email, password_hash, is_active)
-                VALUES (%s, %s, %s, 1)
-            """, (full_name, email, password_hash))
-            message = "Admin created successfully"
-
-        conn.commit()
-        return {"message": message, "email": email}
-
-    except Exception as e:
-        return {"error": str(e)}
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()

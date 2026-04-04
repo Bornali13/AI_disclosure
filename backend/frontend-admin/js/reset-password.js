@@ -23,6 +23,30 @@ const requestOtpBtn = document.getElementById("requestOtpBtn");
 const verifyOtpBtn = document.getElementById("verifyOtpBtn");
 const resetPasswordBtn = document.getElementById("resetPasswordBtn");
 
+const params = new URLSearchParams(window.location.search);
+const emailFromUrl = params.get("email");
+const otpFromUrl = params.get("otp");
+
+// AUTO FLOW FROM EMAIL LINK
+if (emailFromUrl) {
+  emailInput.value = emailFromUrl;
+  verifyEmailInput.value = emailFromUrl;
+  resetEmailInput.value = emailFromUrl;
+
+  requestSection.classList.add("d-none");
+  verifySection.classList.remove("d-none");
+}
+
+if (otpFromUrl) {
+  otpInput.value = otpFromUrl;
+}
+
+if (emailFromUrl && otpFromUrl) {
+  setTimeout(() => {
+    verifyOtpForm.dispatchEvent(new Event("submit"));
+  }, 500);
+}
+
 function hideMessages() {
   alertBox.classList.add("d-none");
   successBox.classList.add("d-none");
@@ -137,10 +161,13 @@ verifyOtpForm?.addEventListener("submit", async (e) => {
     }
 
     showSuccess(data.message || "OTP verified successfully.");
-    showPasswordSection(email);
+    verifySection.classList.add("d-none");
+    passwordSection.classList.remove("d-none");
 
-    if (newPasswordInput) newPasswordInput.value = "";
-    if (confirmPasswordInput) confirmPasswordInput.value = "";
+    resetEmailInput.value = email;
+
+    newPasswordInput.value = "";
+    confirmPasswordInput.value = "";
   } catch (err) {
     showError("Server error during OTP verification.");
   } finally {
@@ -191,7 +218,7 @@ resetPasswordForm?.addEventListener("submit", async (e) => {
     showSuccess(data.message || "Password reset successfully.");
 
     setTimeout(() => {
-      window.location.href = "index.html";
+      window.location.href = "https://ai-portal-y1a1.onrender.com";
     }, 1200);
   } catch (err) {
     showError("Server error while resetting password.");

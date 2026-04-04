@@ -50,11 +50,6 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
       user: data.user
     });
 
-    if (data.must_change_password) {
-      window.location.href = "change-password.html";
-      return;
-    }
-
     if (data.user.role === "teacher") {
       window.location.href = "teacher.html";
     } else {
