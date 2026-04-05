@@ -1774,64 +1774,92 @@ async def student_submit_assignment(
         # -------------------------
         # Store submission
         # -------------------------
+                # -------------------------
+        # Store submission
+        # -------------------------
         cur.execute("""
-                    INSERT INTO submissions (
-                        submitted_at,
-                        semester_name,
-                        student_name,
-                        student_id,
-                        student_email,
-                        course_code,
-                        assignment_number,
-                        used_ai,
-                        used_rewrite,
-                        used_research,
-                        used_complete,
-                        evidence_text,
-                        draft_text,
-                        draft_file_name,
-                        final_text,
-                        stored_file_name,
-                        stored_file_path,
-                        label,
-                        confidence,
-                        decision,
-                        explanation,
-                        total_words_assessed,
-                        total_chunks_assessed)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                        """, (
-                            submitted_at,
-                            semester_name,
-                            student["student_name"],
-                            student["student_id"],
-                            student["email"],
-                            course_code,
-                            assignment_number,
-                            int(used_ai),
-                            int(used_rewrite),
-                            int(used_research),
-                            int(used_complete),
-                            evidence_text.strip() if evidence_text else "",
-                            draft_text.strip() if draft_text else "",
-                            safe_draft_name,
-                            final_text,
-                            safe_final_name,
-                            str(stored_final_path),
-                            label,
-                            score,
-                            decision,
-                            explanation,
-                            total_words_assessed,
-                            total_chunks_assessed,))
+            INSERT INTO submissions (
+                submitted_at,
+                semester_name,
+                student_name,
+                student_id,
+                student_email,
+                course_code,
+                assignment_number,
+                used_ai,
+                used_rewrite,
+                used_research,
+                used_complete,
+                evidence_text,
+                draft_text,
+                draft_file_name,
+                final_text,
+                stored_file_name,
+                stored_file_path,
+                label,
+                confidence,
+                decision,
+                explanation,
+                total_words_assessed,
+                total_chunks_assessed
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            RETURNING id
+        """, (
+            submitted_at,
+            semester_name,
+            student["student_name"],
+            student["student_id"],
+            student["email"],
+            course_code,
+            assignment_number,
+            int(used_ai),
+            int(used_rewrite),
+            int(used_research),
+            int(used_complete),
+            evidence_text.strip() if evidence_text else "",
+            draft_text.strip() if draft_text else "",
+            safe_draft_name,
+            final_text,
+            safe_final_name,
+            str(stored_final_path),
+            label,
+            score,
+            decision,
+            explanation,
+            total_words_assessed,
+            total_chunks_assessed,
+        ))
 
-        submission_id = cur.fetchone()["id"]
+        row = cur.fetchone()
+        submission_id = row["id"] if row else None
+
         conn.commit()
+
+        return {
+            "message": "Submission stored successfully",
+            "submission_id": submission_id,
+            "submitted_at": submitted_at,
+            "semester_name": semester_name,
+            "course_code": course_code,
+            "assignment_number": assignment_number,
+            "label": label,
+            "confidence": round(float(score), 4),
+            "decision": decision,
+            "explanation": explanation,
+            "total_words_assessed": total_words_assessed,
+            "total_chunks_assessed": total_chunks_assessed,
+            "used_ai": bool(used_ai),
+            "used_rewrite": bool(used_rewrite),
+            "used_research": bool(used_research),
+            "used_complete": bool(used_complete),
+        }
     finally:
         cur.close()
         conn.close()
-
+        
 
 @app.get("/api/teacher/submissions/{submission_id}/download-draft")
 def teacher_download_draft(

@@ -1069,42 +1069,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnFinalSubmit) {
     btnFinalSubmit.addEventListener("click", async () => {
       try {
-        if (locked) return;
-        if (!validateBeforeRun()) return;
-
-        await ensureExtractedText();
-
-        if (!finalTextCache.trim()) {
-          alert("Could not extract text from the final file.");
-          return;
-        }
-
-        btnFinalSubmit.disabled = true;
-        btnFinalSubmit.textContent = "Submitting...";
-
-        startLoading("Submitting your assignment...");
-        updateLoading("Checking files", 20, "Validating draft and final file details.");
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        updateLoading("Saving submission", 55, "Your original Word file and analysis details are being stored.");
-        const apiResult = await submitAssignment();
-
-        updateLoading("Finishing", 90, "Submission completed. Preparing confirmation.");
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const result = normalizeResult(apiResult);
-
-        // ✅ store submission ID
-        latestSubmissionId = result.submission_id || apiResult.submission_id || null;
-
+        const result = await submitAssignment();
+        latestSubmissionId = result?.submission_id || null;
+        
         showResult(result, "submit");
-
-        // ✅ show download button AFTER submission
+        
         const downloadBtn = document.getElementById("downloadReportBtn");
         if (downloadBtn && latestSubmissionId) {
           downloadBtn.classList.remove("d-none");
         }
-
+        
         locked = true;
         alert("Final submission stored successfully.");
       } catch (err) {
