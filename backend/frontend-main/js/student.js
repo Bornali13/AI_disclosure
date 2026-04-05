@@ -1,7 +1,8 @@
 const API_BASE = "https://ai-disclosure.onrender.com";
 const AUTH_KEY = "aidisclosure_auth_v1";
 
-let auth = null;const API_BASE = "https://YOUR-BACKEND-URL.onrender.com";
+let auth = null;
+
 try {
   auth = JSON.parse(localStorage.getItem(AUTH_KEY) || "null");
 } catch {
@@ -649,32 +650,36 @@ function renderSuspiciousSections(sections) {
   // API loaders
   // ---------------------------
   async function loadSemesters() {
-    if (!semesterSelect) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/semesters`, {
+      headers: {
+        "Authorization": `Bearer ${auth.access_token}`
+      }
+    });
 
-    semesterSelect.innerHTML = `<option value="">Loading semesters...</option>`;
+    const data = await res.json();
 
-    try {
-      const res = await fetch(`${API_BASE}/api/semesters`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      const data = await res.json();
-      const semesters = Array.isArray(data) ? data : data.semesters || [];
-
-      setSelectOptions(
-        semesterSelect,
-        semesters,
-        "Select Semester",
-        "semester_name",
-        (item) => item.semester_name
-      );
-    } catch (err) {
-      console.error("Failed to load semesters", err);
-      semesterSelect.innerHTML = `<option value="">Error loading semesters</option>`;
+    if (!res.ok) {
+      throw new Error(data.detail || "Failed to load semesters");
     }
+
+    semesterSelect.innerHTML = `<option value="">Select Semester</option>`;
+
+    data.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.semester_name;
+      option.textContent = item.semester_name;
+      semesterSelect.appendChild(option);
+    });
+  } catch (err) {
+    console.error("Failed to load semesters:", err);
+    semesterSelect.innerHTML = `<option value="">Failed to load semesters</option>`;
   }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadSemesters();
+});
 
   async function loadStudentCourses(semesterName) {
     if (!checkCourseCode) return;
