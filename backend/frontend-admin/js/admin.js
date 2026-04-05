@@ -188,13 +188,14 @@ async function loadSemesters() {
 
     const semesters = Array.isArray(data) ? data : data.semesters || [];
 
-    setSelectOptions(
-      semesterSelect,
-      semesters,
-      "Select Semester",
-      "semester_name",
-      (item) => item.semester_name
-    );
+    semesterSelect.innerHTML = `<option value="">Select Semester</option>`;
+
+    semesters.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.semester_name;
+      option.textContent = item.semester_name;
+      semesterSelect.appendChild(option);
+    });
   } catch (err) {
     console.error("Failed to load semesters:", err);
   }
@@ -490,6 +491,19 @@ document.getElementById("logoutBtn")?.addEventListener("click", () => {
 });
 
 // Initial load
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await Promise.all([
+      loadTeachers(),
+      loadCourses(),
+      loadSemesters(),
+    ]);
+  } catch (err) {
+    console.error("Initial admin data load failed:", err);
+  }
+});
+
+///////////////////////
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     await Promise.all([
