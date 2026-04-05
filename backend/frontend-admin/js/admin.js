@@ -284,61 +284,37 @@ document.getElementById("studentForm")?.addEventListener("submit", async (e) => 
 });
 
 // Add semester
-document.getElementById("semesterForm").addEventListener("submit", async (e) => {
+document.getElementById("semesterForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
+  clearMessages();
 
-  const alertBox = document.getElementById("alertBox");
-  const successBox = document.getElementById("successBox");
-  const btn = document.getElementById("semesterBtn");
-
-  alertBox.classList.add("d-none");
-  successBox.classList.add("d-none");
-
-  const semester_name = document.getElementById("semesterName").value.trim();
+  const form = e.currentTarget;
+  const submitBtn = document.getElementById("semesterBtn") || form.querySelector("button[type='submit']");
+  const semesterInput = document.getElementById("semesterName");
+  const semester_name = semesterInput ? semesterInput.value.trim() : "";
 
   if (!semester_name) {
-    alertBox.textContent = "Semester name is required";
-    alertBox.classList.remove("d-none");
+    showError("Please enter a semester name.");
     return;
   }
 
-  btn.disabled = true;
-  btn.innerText = "Adding...";
-
   try {
-    const res = await fetch(`${API_BASE}/api/admin/create-semester`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${auth.access_token}`
-      },
-      body: JSON.stringify({
-        semester_name: semester_name   // ✅ VERY IMPORTANT
-      })
+    setButtonLoading(submitBtn, '<span class="spinner-border spinner-border-sm me-2"></span>Adding Semester...');
+
+    const data = await apiJson(`${API_BASE}/api/admin/create-semester`, "POST", {
+      semester_name: semester_name
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      alertBox.textContent = data.detail || "Failed to add semester";
-      alertBox.classList.remove("d-none");
-      return;
-    }
-
-    successBox.textContent = "Semester added successfully";
-    successBox.classList.remove("d-none");
-
-    document.getElementById("semesterForm").reset();
-
+    showSuccess(data.message || "Semester added successfully.");
+    form.reset();
+    await loadSemesters();
   } catch (err) {
-    alertBox.textContent = "Server error";
-    alertBox.classList.remove("d-none");
+    showError(err.message || "Failed to add semester.");
   } finally {
-    btn.disabled = false;
-    btn.innerText = "Add Semester";
+    resetButton(submitBtn);
   }
 });
-
+  
 
 // Add course
 document.getElementById("courseForm")?.addEventListener("submit", async (e) => {

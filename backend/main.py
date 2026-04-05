@@ -417,6 +417,9 @@ class AdminCreateStudentRequest(BaseModel):
     email: EmailStr
     student_id: str
     password: str
+    
+class AdminCreateSemesterRequest(BaseModel):
+    semester_name: str
 
 
 class AdminCreateCourseRequest(BaseModel):
