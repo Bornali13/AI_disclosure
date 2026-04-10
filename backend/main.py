@@ -2625,9 +2625,6 @@ def teacher_allow_resubmission(
         conn.close()
         
 #--------------------------------
-@app.get("/")
-def root():
-    return {"message": "AI Disclosure backend is running"}
 
 @app.get("/debug/db")
 def debug_db():
