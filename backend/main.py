@@ -57,6 +57,8 @@ security = HTTPBearer()
 app = FastAPI(title="AI Disclosure App API")
 
 origins = [
+    "https://aidisclosureapp.com",
+    "https://www.aidisclosureapp.com"
     "https://ai-portal-y1a1.onrender.com",
     "https://ai-admin-uka5.onrender.com",
     "http://localhost:3000",
