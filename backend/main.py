@@ -37,6 +37,16 @@ import psycopg2.extras
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+# Define the path to the frontend directory
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend-main"
+
+
+
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 180
@@ -60,6 +70,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def serve_home():
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+# Mount the frontend directory as a static files directory
+app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
 # =========================================================
 # Paths / Config
