@@ -80,6 +80,22 @@ def serve_home():
 # Mount the frontend directory as a static files directory
 app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
+@app.get("/student.html")
+def serve_student():
+    return FileResponse(FRONTEND_DIR / "student.html")
+
+@app.get("/teacher.html")
+def serve_teacher():
+    return FileResponse(FRONTEND_DIR / "teacher.html")
+
+@app.get("/reset-password.html")
+def serve_reset_password():
+    return FileResponse(FRONTEND_DIR / "reset-password.html")
+
+@app.get("/register.html")
+def serve_register():
+    return FileResponse(FRONTEND_DIR / "register.html")
+
 # =========================================================
 # Paths / Config
 # =========================================================
