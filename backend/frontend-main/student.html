@@ -14,6 +14,25 @@
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     }
 
+    .navbar {
+      background: linear-gradient(90deg, #0d3f73, #175792) !important;
+    }
+
+    .navbar-brand,
+    .navbar-brand:hover,
+    .navbar-brand:focus {
+      color: #ffffff !important;
+    }
+
+    .navbar .text-muted {
+      color: rgba(255, 255, 255, 0.82) !important;
+    }
+
+    .portal-label {
+      font-size: 0.98rem;
+      font-weight: 700;
+    }
+
     .brand-mark {
       width: 36px;
       height: 36px;
@@ -21,8 +40,8 @@
       align-items: center;
       justify-content: center;
       border-radius: 10px;
-      background: #e8f0f8;
-      color: #0d3f73;
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
     }
 
     .section-card {
@@ -155,6 +174,23 @@
       background: linear-gradient(90deg, #0a345d, #124a7e) !important;
       box-shadow: 0 14px 28px rgba(10, 49, 92, 0.24) !important;
     }
+
+    .logout-btn {
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      background: #ffffff;
+      color: #0d3f73;
+      font-weight: 600;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .logout-btn:hover,
+    .logout-btn:focus {
+      background: #eef5ff;
+      color: #0a345d;
+      border-color: #ffffff;
+      box-shadow: 0 10px 22px rgba(5, 25, 48, 0.18);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -169,8 +205,8 @@
       </a>
 
       <div class="d-flex align-items-center gap-2">
-        <span class="text-muted small d-none d-md-inline">Student Portal</span>
-        <a class="btn btn-outline-secondary btn-sm" href="index.html">Logout</a>
+        <span class="text-muted portal-label d-none d-md-inline">Student Portal</span>
+        <a class="btn logout-btn btn-sm" href="index.html">Logout</a>
       </div>
     </div>
   </nav>
