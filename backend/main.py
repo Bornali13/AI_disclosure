@@ -972,6 +972,14 @@ def admin_login(data: AdminLoginRequest):
     """, (data.email.strip(),))
     admin = cur.fetchone()
 
+    print("INPUT EMAIL:", repr(data.email))
+    print("STRIPPED EMAIL:", repr(data.email.strip()))
+    print("ADMIN FOUND:", bool(admin))
+
+    if admin:
+        print("DB EMAIL:", repr(admin["email"]))
+        print("PASSWORD MATCH:", verify_password(data.password, admin["password_hash"]))
+
     conn.close()
 
     if not admin or not verify_password(data.password, admin["password_hash"]):

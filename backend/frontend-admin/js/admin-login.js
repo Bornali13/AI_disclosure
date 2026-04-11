@@ -1,4 +1,4 @@
-const API_BASE = "https://ai-disclosure.onrender.com";
+const API_BASE = window.location.origin;
 const ADMIN_KEY = "aidisclosure_admin_auth";
 
 document.getElementById("adminLoginForm").addEventListener("submit", async (e) => {
